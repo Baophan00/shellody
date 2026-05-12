@@ -1,21 +1,21 @@
 // Client-side Shelby Protocol upload helpers.
-// Step 1: prepareUpload — sends the file server-side so commitments are generated
-//         and the in-memory session is created. Returns the Move tx payload for
-//         the wallet to sign.
-// Step 2: commitUpload — after the wallet signs+submits the on-chain tx, notify
-//         the server to upload the blob bytes to the RPC storage layer.
+
+export interface BlobPayloadParams {
+  blobName: string;
+  merkleRootHex: string;
+  numChunksets: number;
+  blobSize: number;
+}
 
 export interface PrepareResult {
   sessionId: string;
   cid: string;
-  blobName: string;
   audioUrl: string;
   expirationMicros: number;
-  merkleRootHex: string;
-  numChunksets: number;
-  blobSize: number;
   encoding: number;
   deployerAddress: string;
+  audio: BlobPayloadParams;
+  metadata: BlobPayloadParams;
 }
 
 async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
@@ -30,27 +30,34 @@ async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
 export async function prepareUpload(
   file: File,
   userAddress: string,
-  trackId: string
+  trackId: string,
+  title: string,
+  artist: string,
+  genre: string,
+  coverColor: string,
+  duration: number
 ): Promise<PrepareResult> {
   const form = new FormData();
   form.append('file', file);
   form.append('trackId', trackId);
   form.append('userAddress', userAddress);
-  return apiFetch<PrepareResult>('/api/upload/prepare', {
-    method: 'POST',
-    body: form,
-  });
+  form.append('title', title);
+  form.append('artist', artist);
+  form.append('genre', genre);
+  form.append('coverColor', coverColor);
+  form.append('duration', String(duration));
+  return apiFetch<PrepareResult>('/api/upload/prepare', { method: 'POST', body: form });
 }
 
 export async function commitUpload(
   sessionId: string,
-  txHash: string,
-  userAddress: string,
-  blobName: string
+  audioTxHash: string,
+  metadataTxHash: string,
+  userAddress: string
 ): Promise<void> {
   await apiFetch<{ ok: boolean }>('/api/upload/commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, txHash, userAddress, blobName }),
+    body: JSON.stringify({ sessionId, audioTxHash, metadataTxHash, userAddress }),
   });
 }

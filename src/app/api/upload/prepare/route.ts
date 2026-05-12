@@ -8,6 +8,7 @@ import {
 } from '@shelby-protocol/sdk/node';
 import {
   blobNameForTrack,
+  metadataBlobName,
   audioUrlFromBlobName,
   contentId,
 } from '@/lib/shelby-server';
@@ -19,50 +20,77 @@ export async function POST(req: NextRequest) {
     const file = form.get('file');
     const trackId = form.get('trackId');
     const userAddress = form.get('userAddress');
+    const title = form.get('title');
+    const artist = form.get('artist') ?? '';
+    const genre = form.get('genre') ?? '';
+    const coverColor = form.get('coverColor') ?? 'from-violet-600 to-blue-600';
+    const duration = Number(form.get('duration') ?? 0);
 
     if (
       !(file instanceof File) ||
-      typeof trackId !== 'string' ||
-      !trackId ||
-      typeof userAddress !== 'string' ||
-      !userAddress
+      typeof trackId !== 'string' || !trackId ||
+      typeof userAddress !== 'string' || !userAddress ||
+      typeof title !== 'string' || !title
     ) {
-      return NextResponse.json(
-        { error: 'Missing file, trackId, or userAddress' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const blobName = blobNameForTrack(trackId, file.name);
+    const audioBlobName = blobNameForTrack(trackId, file.name);
+    const metaBlobName = metadataBlobName(trackId);
+    const audioUrl = audioUrlFromBlobName(audioBlobName, userAddress);
+    const expirationMicros = Date.now() * 1000 + 365 * 24 * 3600 * 1_000_000;
+
+    // Generate audio commitments (CPU-intensive)
     const arrayBuffer = await file.arrayBuffer();
-    const blobData = new Uint8Array(arrayBuffer);
-    const expirationMicros =
-      Date.now() * 1000 + 365 * 24 * 3600 * 1_000_000;
-
-    // Compute erasure-coded commitments (CPU-intensive, keep on server)
+    const audioBlobData = new Uint8Array(arrayBuffer);
     const provider = await createDefaultErasureCodingProvider();
-    const commitments = await generateCommitments(provider, blobData);
-    const numChunksets = expectedTotalChunksets(
-      blobData.length,
-      DEFAULT_CHUNKSET_SIZE_BYTES
-    );
+    const audioCommitments = await generateCommitments(provider, audioBlobData);
+    const audioNumChunksets = expectedTotalChunksets(audioBlobData.length, DEFAULT_CHUNKSET_SIZE_BYTES);
+    const cid = await contentId(audioBlobData);
 
-    // Stash the blob bytes until the client returns with a signed tx
-    const sessionId = createSession(blobData, blobName);
-    const cid = await contentId(blobData);
-    const audioUrl = audioUrlFromBlobName(blobName, userAddress);
+    // Build metadata JSON and generate its commitments
+    const trackMetadata = {
+      id: trackId,
+      title,
+      artist: String(artist),
+      genre: String(genre) || undefined,
+      address: userAddress,
+      audioUrl,
+      blobName: audioBlobName,
+      cid,
+      coverColor: String(coverColor),
+      duration,
+      plays: 0,
+      uploadedAt: Date.now(),
+    };
+    const metadataBlobData = new TextEncoder().encode(JSON.stringify(trackMetadata));
+    const metaCommitments = await generateCommitments(provider, metadataBlobData);
+    const metaNumChunksets = expectedTotalChunksets(metadataBlobData.length, DEFAULT_CHUNKSET_SIZE_BYTES);
+
+    const sessionId = createSession([
+      { blobData: audioBlobData, blobName: audioBlobName },
+      { blobData: metadataBlobData, blobName: metaBlobName },
+    ]);
 
     return NextResponse.json({
       sessionId,
       cid,
-      blobName,
       audioUrl,
       expirationMicros,
-      merkleRootHex: commitments.blob_merkle_root,
-      numChunksets,
-      blobSize: blobData.length,
       encoding: 0,
       deployerAddress: SHELBY_DEPLOYER,
+      audio: {
+        blobName: audioBlobName,
+        merkleRootHex: audioCommitments.blob_merkle_root,
+        numChunksets: audioNumChunksets,
+        blobSize: audioBlobData.length,
+      },
+      metadata: {
+        blobName: metaBlobName,
+        merkleRootHex: metaCommitments.blob_merkle_root,
+        numChunksets: metaNumChunksets,
+        blobSize: metadataBlobData.length,
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Prepare failed';

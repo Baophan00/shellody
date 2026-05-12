@@ -1,15 +1,19 @@
-interface UploadSession {
+interface BlobEntry {
   blobData: Uint8Array;
   blobName: string;
+}
+
+interface UploadSession {
+  blobs: BlobEntry[];
   expiresAt: number;
 }
 
 const store = new Map<string, UploadSession>();
 const TTL_MS = 5 * 60 * 1000;
 
-export function createSession(blobData: Uint8Array, blobName: string): string {
+export function createSession(blobs: BlobEntry[]): string {
   const id = crypto.randomUUID();
-  store.set(id, { blobData, blobName, expiresAt: Date.now() + TTL_MS });
+  store.set(id, { blobs, expiresAt: Date.now() + TTL_MS });
   store.forEach((v, k) => {
     if (v.expiresAt < Date.now()) store.delete(k);
   });

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Track } from '@/lib/types';
-import { getTracksByAddress } from '@/lib/storage';
+import { getTracks } from '@/lib/storage';
 import TrackCard from '@/components/TrackCard';
 import { shortAddress } from '@/lib/utils';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
@@ -16,8 +16,23 @@ export default function ProfilePage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setTracks(getTracksByAddress(address));
-    setLoaded(true);
+    const localById = new Map(getTracks().map((t) => [t.id, t]));
+    fetch(`/api/feed?address=${encodeURIComponent(address)}`)
+      .then((r) => r.json())
+      .then(({ tracks: shelbyTracks }: { tracks: Track[] }) => {
+        const merged = shelbyTracks.map((t) => ({
+          ...t,
+          plays: localById.get(t.id)?.plays ?? t.plays,
+        }));
+        setTracks(merged);
+      })
+      .catch(() => {
+        // Fallback: filter local tracks by address
+        setTracks(getTracks().filter(
+          (t) => t.address.toLowerCase() === address.toLowerCase()
+        ));
+      })
+      .finally(() => setLoaded(true));
   }, [address]);
 
   const isOwn =

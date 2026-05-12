@@ -18,6 +18,10 @@ export function blobNameForTrack(trackId: string, filename: string): string {
   return `shellody/${trackId}${ext}`;
 }
 
+export function metadataBlobName(trackId: string): string {
+  return `shellody/tracks/${trackId}.json`;
+}
+
 // URL encodes the blob owner's address so the proxy can look up the right account.
 export function audioUrlFromBlobName(blobName: string, ownerAddress: string): string {
   return `/api/audio/${ownerAddress}/${blobName}`;

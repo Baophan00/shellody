@@ -3,7 +3,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { addTrack } from '@/lib/storage';
-import { prepareUpload, commitUpload } from '@/lib/shelby';
+import { prepareUpload, commitUpload, BlobPayloadParams } from '@/lib/shelby';
 import { generateId } from '@/lib/utils';
 import { Track } from '@/lib/types';
 
@@ -23,7 +23,14 @@ const GENRES = [
   'Rock', 'Pop', 'Classical', 'Lo-Fi', 'R&B', 'Other',
 ];
 
-type Status = 'idle' | 'preparing' | 'signing' | 'uploading' | 'saving' | 'done';
+type Status =
+  | 'idle'
+  | 'preparing'
+  | 'signing-audio'
+  | 'signing-meta'
+  | 'uploading'
+  | 'saving'
+  | 'done';
 
 function hexToBytes(hex: string): Uint8Array {
   const h = hex.replace(/^0x/, '');
@@ -32,6 +39,26 @@ function hexToBytes(hex: string): Uint8Array {
     bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
   }
   return bytes;
+}
+
+function buildRegisterPayload(
+  deployerAddress: string,
+  params: BlobPayloadParams,
+  expirationMicros: number,
+  encoding: number
+) {
+  return {
+    function: `${deployerAddress}::blob_metadata::register_blob` as `${string}::${string}::${string}`,
+    functionArguments: [
+      params.blobName,
+      expirationMicros,
+      hexToBytes(params.merkleRootHex),
+      params.numChunksets,
+      params.blobSize,
+      0,
+      encoding,
+    ],
+  };
 }
 
 export default function UploadPage() {
@@ -78,35 +105,47 @@ export default function UploadPage() {
     if (!file || !title || !address) return;
     setError('');
     const trackId = generateId();
+    const coverColor = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)];
 
     try {
-      // Step 1 — generate commitments server-side, get the Move tx payload
+      // Step 1 — server computes erasure commitments for audio + metadata JSON
       setStatus('preparing');
-      const prep = await prepareUpload(file, address, trackId);
+      const prep = await prepareUpload(
+        file, address, trackId,
+        title.trim(),
+        artist.trim() || address.slice(0, 8),
+        genre,
+        coverColor,
+        fileDuration
+      );
 
-      // Step 2 — wallet signs + submits the registerBlob transaction on-chain
-      setStatus('signing');
-      const merkleRootBytes = hexToBytes(prep.merkleRootHex);
-      const txResult = await signAndSubmitTransaction({
-        data: {
-          function: `${prep.deployerAddress}::blob_metadata::register_blob` as `${string}::${string}::${string}`,
-          functionArguments: [
-            prep.blobName,
-            prep.expirationMicros,
-            merkleRootBytes,
-            prep.numChunksets,
-            prep.blobSize,
-            0,
-            prep.encoding,
-          ],
-        },
+      // Step 2a — wallet signs registerBlob for the audio file (Petra popup 1/2)
+      setStatus('signing-audio');
+      const audioTx = await signAndSubmitTransaction({
+        data: buildRegisterPayload(
+          prep.deployerAddress,
+          prep.audio,
+          prep.expirationMicros,
+          prep.encoding
+        ),
       });
 
-      // Step 3 — server waits for tx confirmation then pushes blob bytes to RPC
-      setStatus('uploading');
-      await commitUpload(prep.sessionId, txResult.hash, address, prep.blobName);
+      // Step 2b — wallet signs registerBlob for the metadata JSON (Petra popup 2/2)
+      setStatus('signing-meta');
+      const metaTx = await signAndSubmitTransaction({
+        data: buildRegisterPayload(
+          prep.deployerAddress,
+          prep.metadata,
+          prep.expirationMicros,
+          prep.encoding
+        ),
+      });
 
-      // Step 4 — persist track metadata locally
+      // Step 3 — server waits for both txs then pushes blobs to Shelby RPC
+      setStatus('uploading');
+      await commitUpload(prep.sessionId, audioTx.hash, metaTx.hash, address);
+
+      // Step 4 — persist track locally for play-count tracking
       setStatus('saving');
       const track: Track = {
         id: trackId,
@@ -115,7 +154,7 @@ export default function UploadPage() {
         address,
         cid: prep.cid,
         audioUrl: prep.audioUrl,
-        coverColor: COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)],
+        coverColor,
         duration: fileDuration,
         plays: 0,
         uploadedAt: Date.now(),
@@ -156,7 +195,6 @@ export default function UploadPage() {
     );
   }
 
-  /* ── Upload form ────────────────────────────────────────────── */
   const busy = status !== 'idle';
 
   return (
@@ -164,7 +202,7 @@ export default function UploadPage() {
       <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Upload Track</h1>
       <p className="text-zinc-400 mb-8">
         Stored on <span className="text-violet-400">Shelby Protocol</span> — your wallet
-        pays storage fees directly.
+        pays storage fees. Two Petra approvals required.
       </p>
 
       {/* Drop zone */}
@@ -183,7 +221,6 @@ export default function UploadPage() {
           onChange={onFileChange}
           className="hidden"
         />
-
         {file ? (
           <div className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 rounded-2xl bg-violet-500/20 flex items-center justify-center mb-1">
@@ -225,7 +262,6 @@ export default function UploadPage() {
             className="bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none transition-colors disabled:opacity-50"
           />
         </label>
-
         <label className="flex flex-col gap-1">
           <span className="text-sm text-zinc-400">Artist Name</span>
           <input
@@ -236,7 +272,6 @@ export default function UploadPage() {
             className="bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none transition-colors disabled:opacity-50"
           />
         </label>
-
         <label className="flex flex-col gap-1">
           <span className="text-sm text-zinc-400">Genre</span>
           <select
@@ -251,22 +286,21 @@ export default function UploadPage() {
         </label>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-4 text-sm">
           {error}
         </div>
       )}
 
-      {/* Status steps */}
       {busy && (
         <div className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3 mb-4">
           <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
           <span className="text-zinc-300 text-sm">
             {status === 'preparing' && 'Computing storage commitments…'}
-            {status === 'signing' && 'Waiting for Petra wallet signature…'}
-            {status === 'uploading' && 'Uploading audio to Shelby Protocol…'}
-            {status === 'saving' && 'Saving track metadata…'}
+            {status === 'signing-audio' && 'Approve audio registration in Petra (1/2)…'}
+            {status === 'signing-meta' && 'Approve metadata registration in Petra (2/2)…'}
+            {status === 'uploading' && 'Uploading to Shelby Protocol…'}
+            {status === 'saving' && 'Saving track…'}
             {status === 'done' && 'Done! Redirecting…'}
           </span>
         </div>

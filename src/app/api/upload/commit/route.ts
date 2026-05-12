@@ -4,11 +4,11 @@ import { consumeSession } from '@/lib/session-store';
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId, txHash, userAddress, blobName } = await req.json();
+    const { sessionId, audioTxHash, metadataTxHash, userAddress } = await req.json();
 
-    if (!sessionId || !txHash || !userAddress || !blobName) {
+    if (!sessionId || !audioTxHash || !metadataTxHash || !userAddress) {
       return NextResponse.json(
-        { error: 'Missing sessionId, txHash, userAddress, or blobName' },
+        { error: 'Missing sessionId, audioTxHash, metadataTxHash, or userAddress' },
         { status: 400 }
       );
     }
@@ -16,22 +16,25 @@ export async function POST(req: NextRequest) {
     const session = consumeSession(sessionId);
     if (!session) {
       return NextResponse.json(
-        { error: 'Upload session expired or not found. Please retry the upload.' },
+        { error: 'Upload session expired or not found. Please retry.' },
         { status: 404 }
       );
     }
 
     const client = getShelbyClient();
 
-    // Wait for the on-chain registerBlob tx to be confirmed
-    await client.aptos.waitForTransaction({ transactionHash: txHash });
+    // Wait for both on-chain transactions to be confirmed concurrently
+    await Promise.all([
+      client.aptos.waitForTransaction({ transactionHash: audioTxHash }),
+      client.aptos.waitForTransaction({ transactionHash: metadataTxHash }),
+    ]);
 
-    // Push the blob bytes to the Shelby RPC storage layer (no signing needed)
-    await client.rpc.putBlob({
-      account: userAddress,
-      blobName,
-      blobData: session.blobData,
-    });
+    // Push both blobs to the Shelby RPC storage layer concurrently
+    await Promise.all(
+      session.blobs.map(({ blobData, blobName }) =>
+        client.rpc.putBlob({ account: userAddress, blobName, blobData })
+      )
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
