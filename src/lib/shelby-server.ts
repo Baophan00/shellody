@@ -15,7 +15,7 @@ export function getShelbyClient(): ShelbyNodeClient {
   const apiKey = process.env.SHELBY_API_KEY;
   if (!apiKey) throw new Error('SHELBY_API_KEY is not set');
   return new ShelbyNodeClient({
-    network: Network.SHELBYNET,
+    network: Network.TESTNET,
     apiKey,
     rpc: { apiKey },
   });
