@@ -11,8 +11,9 @@ export async function GET() {
   const buf = new ArrayBuffer(fileSize);
   const v = new DataView(buf);
 
-  const str = (s: string, offset: number) =>
-    [...s].forEach((c, i) => v.setUint8(offset + i, c.charCodeAt(0)));
+  const str = (s: string, offset: number) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(offset + i, s.charCodeAt(i));
+  };
 
   str('RIFF', 0);
   v.setUint32(4, fileSize - 8, true);
