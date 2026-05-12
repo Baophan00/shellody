@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(if \\(-not $?\\) { \"Directory does not exist or is empty\" })",
+      "Bash(npm --version)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(npx create-next-app@14 . --typescript --tailwind --app --src-dir --no-git --import-alias \"@/*\" --eslint --yes)",
+      "Bash(mv \"C:/Users/ADMIN/.claude_shellody_backup\" \"C:/Users/ADMIN/shellody/.claude\" && echo \"Restored .claude\")",
+      "Bash(npm install *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git config *)",
+      "Bash(npx tsc *)",
+      "Bash(git commit *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000 -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s http://localhost:3000__TRACKED_VAR__ -o /dev/null -w '%{http_code}')",
+      "Bash(xargs grep -l \"fromPrivateKey\\\\|Ed25519PrivateKey\")"
+    ]
+  }
+}
