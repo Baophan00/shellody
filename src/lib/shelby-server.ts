@@ -1,6 +1,6 @@
 // Server-only helpers. Never import this from client components.
 import { Account, Ed25519PrivateKey, Network } from '@aptos-labs/ts-sdk';
-import { ShelbyClient } from '@shelby-protocol/sdk/node';
+import { ShelbyNodeClient } from '@shelby-protocol/sdk/node';
 
 export function getSigner(): Account {
   const raw = process.env.SHELBY_PRIVATE_KEY;
@@ -11,10 +11,14 @@ export function getSigner(): Account {
   return Account.fromPrivateKey({ privateKey, legacy: true });
 }
 
-export function getShelbyClient(): ShelbyClient {
+export function getShelbyClient(): ShelbyNodeClient {
   const apiKey = process.env.SHELBY_API_KEY;
   if (!apiKey) throw new Error('SHELBY_API_KEY is not set');
-  return new ShelbyClient({ network: Network.SHELBYNET, apiKey });
+  return new ShelbyNodeClient({
+    network: Network.SHELBYNET,
+    apiKey,
+    rpc: { apiKey },
+  });
 }
 
 export function blobNameForTrack(trackId: string, filename: string): string {
