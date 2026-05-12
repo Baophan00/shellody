@@ -3,8 +3,7 @@ import { useWallet } from '@/context/WalletContext';
 import { shortAddress } from '@/lib/utils';
 
 export default function WalletConnect() {
-  const { address, connected, connecting, error, connect, disconnect } =
-    useWallet();
+  const { address, connected, connecting, error, connect, disconnect } = useWallet();
 
   if (connected && address) {
     return (
@@ -23,7 +22,7 @@ export default function WalletConnect() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1.5">
       <button
         onClick={connect}
         disabled={connecting}
@@ -33,9 +32,9 @@ export default function WalletConnect() {
       </button>
 
       {error && (
-        <span className="text-xs text-red-400 max-w-[200px] text-right leading-tight">
+        <p className="text-xs text-red-400 max-w-[220px] text-right leading-snug">
           {error}
-        </span>
+        </p>
       )}
     </div>
   );
