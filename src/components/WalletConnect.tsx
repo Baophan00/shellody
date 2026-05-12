@@ -1,9 +1,10 @@
 'use client';
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { shortAddress } from '@/lib/utils';
 
 export default function WalletConnect() {
-  const { address, connected, connecting, error, connect, disconnect } = useWallet();
+  const { account, connected, connect, disconnect, isLoading } = useWallet();
+  const address = account?.address.toString() ?? null;
 
   if (connected && address) {
     return (
@@ -22,20 +23,12 @@ export default function WalletConnect() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
-      <button
-        onClick={connect}
-        disabled={connecting}
-        className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
-      >
-        {connecting ? 'Connecting…' : 'Connect Petra'}
-      </button>
-
-      {error && (
-        <p className="text-xs text-red-400 max-w-[220px] text-right leading-snug">
-          {error}
-        </p>
-      )}
-    </div>
+    <button
+      onClick={() => connect('Petra')}
+      disabled={isLoading}
+      className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
+    >
+      {isLoading ? 'Connecting…' : 'Connect Petra'}
+    </button>
   );
 }

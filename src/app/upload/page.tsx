@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { addTrack } from '@/lib/storage';
 import { uploadToShelby } from '@/lib/shelby';
 import { generateId } from '@/lib/utils';
@@ -34,11 +34,9 @@ const GENRES = [
 
 type Status = 'idle' | 'signing' | 'uploading' | 'saving' | 'done';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const petra = () => (window as any).aptos;
-
 export default function UploadPage() {
-  const { address, connected, connect } = useWallet();
+  const { account, connected, connect, signMessage } = useWallet();
+  const address = account?.address.toString() ?? null;
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +82,7 @@ export default function UploadPage() {
     try {
       // Step 1 — sign a message with Petra to prove ownership
       setStatus('signing');
-      await petra().signMessage({
+      await signMessage({
         message: `Uploading "${title}" to Shellody\nTrack ID: ${trackId}`,
         nonce: Date.now().toString(),
       });
@@ -137,7 +135,7 @@ export default function UploadPage() {
           blockchain via Shelby Protocol.
         </p>
         <button
-          onClick={connect}
+          onClick={() => connect('Petra')}
           className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-lg shadow-violet-900/40"
         >
           Connect Petra Wallet

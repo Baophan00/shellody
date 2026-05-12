@@ -2,11 +2,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import WalletConnect from './WalletConnect';
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from '@aptos-labs/wallet-adapter-react';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { address } = useWallet();
+  const { account } = useWallet();
+  const address = account?.address.toString() ?? null;
 
   const links = [
     { href: '/', label: 'Feed' },

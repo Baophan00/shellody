@@ -6,11 +6,12 @@ import { Track } from '@/lib/types';
 import { getTracksByAddress } from '@/lib/storage';
 import TrackCard from '@/components/TrackCard';
 import { shortAddress } from '@/lib/utils';
-import { useWallet } from '@/context/WalletContext';
+import { useWallet } from '@aptos-labs/wallet-adapter-react';
 
 export default function ProfilePage() {
   const { address } = useParams<{ address: string }>();
-  const { address: myAddress } = useWallet();
+  const { account } = useWallet();
+  const myAddress = account?.address.toString() ?? null;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loaded, setLoaded] = useState(false);
 

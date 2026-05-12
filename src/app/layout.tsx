@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { WalletProvider } from '@/context/WalletContext';
-import { PlayerProvider } from '@/context/PlayerContext';
+import { Providers } from '@/components/Providers';
 import Navbar from '@/components/Navbar';
 import AudioPlayer from '@/components/AudioPlayer';
 
@@ -22,13 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-zinc-950 text-white antialiased`}>
-        <WalletProvider>
-          <PlayerProvider>
-            <Navbar />
-            <main className="pt-16 pb-24 min-h-screen">{children}</main>
-            <AudioPlayer />
-          </PlayerProvider>
-        </WalletProvider>
+        <Providers>
+          <Navbar />
+          <main className="pt-16 pb-24 min-h-screen">{children}</main>
+          <AudioPlayer />
+        </Providers>
       </body>
     </html>
   );
