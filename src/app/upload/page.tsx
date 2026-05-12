@@ -3,7 +3,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { addTrack } from '@/lib/storage';
-import { uploadToShelby } from '@/lib/shelby';
+import { prepareUpload, commitUpload } from '@/lib/shelby';
 import { generateId } from '@/lib/utils';
 import { Track } from '@/lib/types';
 
@@ -19,23 +19,23 @@ const COVER_COLORS = [
 ];
 
 const GENRES = [
-  'Electronic',
-  'Hip-Hop',
-  'Ambient',
-  'Funk',
-  'Jazz',
-  'Rock',
-  'Pop',
-  'Classical',
-  'Lo-Fi',
-  'R&B',
-  'Other',
+  'Electronic', 'Hip-Hop', 'Ambient', 'Funk', 'Jazz',
+  'Rock', 'Pop', 'Classical', 'Lo-Fi', 'R&B', 'Other',
 ];
 
-type Status = 'idle' | 'signing' | 'uploading' | 'saving' | 'done';
+type Status = 'idle' | 'preparing' | 'signing' | 'uploading' | 'saving' | 'done';
+
+function hexToBytes(hex: string): Uint8Array {
+  const h = hex.replace(/^0x/, '');
+  const bytes = new Uint8Array(h.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
 
 export default function UploadPage() {
-  const { account, connected, connect, signMessage } = useWallet();
+  const { account, connected, connect, signAndSubmitTransaction } = useWallet();
   const address = account?.address.toString() ?? null;
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,28 +80,42 @@ export default function UploadPage() {
     const trackId = generateId();
 
     try {
-      // Step 1 — sign a message with Petra to prove ownership
+      // Step 1 — generate commitments server-side, get the Move tx payload
+      setStatus('preparing');
+      const prep = await prepareUpload(file, address, trackId);
+
+      // Step 2 — wallet signs + submits the registerBlob transaction on-chain
       setStatus('signing');
-      await signMessage({
-        message: `Uploading "${title}" to Shellody\nTrack ID: ${trackId}`,
-        nonce: Date.now().toString(),
+      const merkleRootBytes = hexToBytes(prep.merkleRootHex);
+      const txResult = await signAndSubmitTransaction({
+        data: {
+          function: `${prep.deployerAddress}::blob_metadata::register_blob` as `${string}::${string}::${string}`,
+          functionArguments: [
+            prep.blobName,
+            prep.expirationMicros,
+            merkleRootBytes,
+            prep.numChunksets,
+            prep.blobSize,
+            0,
+            prep.encoding,
+          ],
+        },
       });
 
-      // Step 2 — upload audio to Shelby Protocol
+      // Step 3 — server waits for tx confirmation then pushes blob bytes to RPC
       setStatus('uploading');
-      const { cid, audioUrl } = await uploadToShelby(file, address, trackId);
+      await commitUpload(prep.sessionId, txResult.hash, address, prep.blobName);
 
-      // Step 3 — persist metadata
+      // Step 4 — persist track metadata locally
       setStatus('saving');
       const track: Track = {
         id: trackId,
         title: title.trim(),
         artist: artist.trim() || address.slice(0, 8),
         address,
-        cid,
-        audioUrl,
-        coverColor:
-          COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)],
+        cid: prep.cid,
+        audioUrl: prep.audioUrl,
+        coverColor: COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)],
         duration: fileDuration,
         plays: 0,
         uploadedAt: Date.now(),
@@ -127,12 +141,10 @@ export default function UploadPage() {
             <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-white mb-3">
-          Connect Your Wallet
-        </h2>
+        <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
         <p className="text-zinc-400 mb-8 leading-relaxed">
-          Connect your Petra wallet to sign uploads and share music on the Aptos
-          blockchain via Shelby Protocol.
+          Connect your Petra wallet to sign uploads and pay your own ShelbyUSD
+          storage fees on Aptos Testnet.
         </p>
         <button
           onClick={() => connect('Petra')}
@@ -149,13 +161,10 @@ export default function UploadPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">
-        Upload Track
-      </h1>
+      <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Upload Track</h1>
       <p className="text-zinc-400 mb-8">
-        Audio is stored on{' '}
-        <span className="text-violet-400">Shelby Protocol</span> — signed with
-        your wallet.
+        Stored on <span className="text-violet-400">Shelby Protocol</span> — your wallet
+        pays storage fees directly.
       </p>
 
       {/* Drop zone */}
@@ -164,14 +173,8 @@ export default function UploadPage() {
         onDragOver={(e) => e.preventDefault()}
         onClick={() => !busy && inputRef.current?.click()}
         className={`relative border-2 border-dashed rounded-2xl p-10 text-center mb-6 transition-colors ${
-          busy
-            ? 'cursor-default opacity-60'
-            : 'cursor-pointer hover:border-violet-500/70'
-        } ${
-          file
-            ? 'border-violet-500/60 bg-violet-500/5'
-            : 'border-zinc-700 bg-zinc-900/50'
-        }`}
+          busy ? 'cursor-default opacity-60' : 'cursor-pointer hover:border-violet-500/70'
+        } ${file ? 'border-violet-500/60 bg-violet-500/5' : 'border-zinc-700 bg-zinc-900/50'}`}
       >
         <input
           ref={inputRef}
@@ -195,11 +198,7 @@ export default function UploadPage() {
                 <> &middot; {Math.floor(fileDuration / 60)}:{String(fileDuration % 60).padStart(2, '0')}</>
               )}
             </p>
-            {!busy && (
-              <span className="text-xs text-violet-400 mt-1">
-                Click to change file
-              </span>
-            )}
+            {!busy && <span className="text-xs text-violet-400 mt-1">Click to change file</span>}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
@@ -209,9 +208,7 @@ export default function UploadPage() {
               </svg>
             </div>
             <p className="text-zinc-300 font-medium">Drop audio file here</p>
-            <p className="text-zinc-500 text-sm">
-              MP3, WAV, FLAC, OGG, AAC supported
-            </p>
+            <p className="text-zinc-500 text-sm">MP3, WAV, FLAC, OGG, AAC supported</p>
           </div>
         )}
       </div>
@@ -219,9 +216,7 @@ export default function UploadPage() {
       {/* Metadata */}
       <div className="flex flex-col gap-4 mb-6">
         <label className="flex flex-col gap-1">
-          <span className="text-sm text-zinc-400">
-            Track Title <span className="text-red-400">*</span>
-          </span>
+          <span className="text-sm text-zinc-400">Track Title <span className="text-red-400">*</span></span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -251,11 +246,7 @@ export default function UploadPage() {
             className="bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white outline-none transition-colors disabled:opacity-50 appearance-none"
           >
             <option value="">Select genre…</option>
-            {GENRES.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
+            {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
           </select>
         </label>
       </div>
@@ -272,8 +263,9 @@ export default function UploadPage() {
         <div className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3 mb-4">
           <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
           <span className="text-zinc-300 text-sm">
-            {status === 'signing' && 'Waiting for wallet signature…'}
-            {status === 'uploading' && 'Uploading to Shelby Protocol…'}
+            {status === 'preparing' && 'Computing storage commitments…'}
+            {status === 'signing' && 'Waiting for Petra wallet signature…'}
+            {status === 'uploading' && 'Uploading audio to Shelby Protocol…'}
             {status === 'saving' && 'Saving track metadata…'}
             {status === 'done' && 'Done! Redirecting…'}
           </span>

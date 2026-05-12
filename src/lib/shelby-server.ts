@@ -1,15 +1,6 @@
 // Server-only helpers. Never import this from client components.
-import { Account, Ed25519PrivateKey, Network } from '@aptos-labs/ts-sdk';
+import { Network } from '@aptos-labs/ts-sdk';
 import { ShelbyNodeClient } from '@shelby-protocol/sdk/node';
-
-export function getSigner(): Account {
-  const raw = process.env.SHELBY_PRIVATE_KEY;
-  if (!raw) throw new Error('SHELBY_PRIVATE_KEY is not set');
-  // Env format: "ed25519-priv-0x<hex>" — strip the prefix, keep "0x"
-  const hex = raw.replace(/^ed25519-priv-/, '');
-  const privateKey = new Ed25519PrivateKey(hex);
-  return Account.fromPrivateKey({ privateKey, legacy: true });
-}
 
 export function getShelbyClient(): ShelbyNodeClient {
   const apiKey = process.env.SHELBY_API_KEY;
@@ -27,9 +18,9 @@ export function blobNameForTrack(trackId: string, filename: string): string {
   return `shellody/${trackId}${ext}`;
 }
 
-export function audioUrlFromBlobName(blobName: string): string {
-  // e.g. "shellody/abc123.mp3" → "/api/audio/shellody/abc123.mp3"
-  return `/api/audio/${blobName}`;
+// URL encodes the blob owner's address so the proxy can look up the right account.
+export function audioUrlFromBlobName(blobName: string, ownerAddress: string): string {
+  return `/api/audio/${ownerAddress}/${blobName}`;
 }
 
 export function mimeTypeFromBlobName(blobName: string): string {

@@ -1,26 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getSigner,
-  getShelbyClient,
-  mimeTypeFromBlobName,
-} from '@/lib/shelby-server';
+import { getShelbyClient, mimeTypeFromBlobName } from '@/lib/shelby-server';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { path: string[] } }
 ) {
   try {
-    // path = ['shellody', 'trackId.mp3']  →  blobName = 'shellody/trackId.mp3'
-    const blobName = params.path.join('/');
-    if (!blobName) {
-      return NextResponse.json({ error: 'Missing blob path' }, { status: 400 });
+    // URL format: /api/audio/{ownerAddress}/shellody/{trackId}.mp3
+    // params.path = ['0x123...', 'shellody', 'trackId.mp3']
+    const [ownerAddress, ...rest] = params.path;
+    const blobName = rest.join('/');
+
+    if (!ownerAddress || !blobName) {
+      return NextResponse.json(
+        { error: 'Missing owner address or blob path' },
+        { status: 400 }
+      );
     }
 
-    const signer = getSigner();
     const client = getShelbyClient();
 
     const blob = await client.download({
-      account: signer.accountAddress,
+      account: ownerAddress,
       blobName,
     });
 
