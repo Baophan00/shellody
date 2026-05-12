@@ -12,6 +12,7 @@ interface WalletContextType {
   address: string | null;
   connected: boolean;
   connecting: boolean;
+  error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
 }
@@ -19,54 +20,78 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | null>(null);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const petra = (): any => (window as any).aptos;
+function getAptos(): any {
+  if (typeof window === 'undefined') return null;
+  return (window as any).aptos ?? null;
+}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Re-hydrate from Petra if the extension was already connected
+  // Re-hydrate only if Petra says it's already connected
   useEffect(() => {
-    if (typeof window === 'undefined' || !('aptos' in window)) return;
-    petra()
-      .account()
-      .then((acc: { address: string }) => setAddress(acc.address))
+    const aptos = getAptos();
+    if (!aptos) return;
+    aptos
+      .isConnected()
+      .then((yes: boolean) => (yes ? aptos.account() : null))
+      .then((acc: { address: string } | null) => {
+        if (acc?.address) setAddress(acc.address);
+      })
       .catch(() => {});
   }, []);
 
   const connect = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    if (!('aptos' in window)) {
-      alert(
-        'Petra wallet not found. Please install the Petra browser extension.'
-      );
+    setError(null);
+
+    const aptos = getAptos();
+    if (!aptos) {
+      setError('Petra wallet not found — install it at petra.app');
       window.open('https://petra.app/', '_blank');
       return;
     }
+
     setConnecting(true);
     try {
-      const res = await petra().connect();
+      const res = await aptos.connect();
+      if (!res?.address) throw new Error('No address returned by Petra');
       setAddress(res.address);
-    } catch (err) {
-      console.error('Wallet connect failed:', err);
+    } catch (err: unknown) {
+      // Code 4001 = user rejected — not an error worth showing
+      const code = (err as { code?: number })?.code;
+      if (code !== 4001) {
+        const msg =
+          (err as { message?: string })?.message ?? 'Connection failed';
+        setError(msg);
+      }
     } finally {
       setConnecting(false);
     }
   }, []);
 
   const disconnect = useCallback(async () => {
-    if (typeof window === 'undefined' || !('aptos' in window)) return;
+    const aptos = getAptos();
     try {
-      await petra().disconnect();
+      await aptos?.disconnect();
     } catch {
       // ignore
     }
     setAddress(null);
+    setError(null);
   }, []);
 
   return (
     <WalletContext.Provider
-      value={{ address, connected: !!address, connecting, connect, disconnect }}
+      value={{
+        address,
+        connected: !!address,
+        connecting,
+        error,
+        connect,
+        disconnect,
+      }}
     >
       {children}
     </WalletContext.Provider>
