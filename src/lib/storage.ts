@@ -1,4 +1,4 @@
-import { Track } from './types';
+import { Track, PrivateTrack } from './types';
 
 const TRACKS_KEY = 'shellody_tracks';
 
@@ -149,4 +149,30 @@ export function incrementPlays(id: string): void {
     t.id === id ? { ...t, plays: t.plays + 1 } : t
   );
   saveTracks(updated);
+}
+
+const PRIVATE_TRACKS_KEY = 'shellody_private_tracks';
+
+export function getPrivateTracks(): PrivateTrack[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(PRIVATE_TRACKS_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as PrivateTrack[];
+  } catch {
+    return [];
+  }
+}
+
+export function savePrivateTracks(tracks: PrivateTrack[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PRIVATE_TRACKS_KEY, JSON.stringify(tracks));
+}
+
+export function addPrivateTrack(track: PrivateTrack): void {
+  savePrivateTracks([track, ...getPrivateTracks()]);
+}
+
+export function removePrivateTrack(id: string): void {
+  savePrivateTracks(getPrivateTracks().filter((t) => t.id !== id));
 }

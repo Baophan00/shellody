@@ -2,10 +2,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
-import { addTrack } from '@/lib/storage';
+import { addPrivateTrack } from '@/lib/storage';
 import { prepareUpload, commitUpload, BlobPayloadParams } from '@/lib/shelby';
 import { generateId } from '@/lib/utils';
-import { Track } from '@/lib/types';
 
 const COVER_COLORS = [
   'from-violet-600 to-blue-600',
@@ -18,19 +17,7 @@ const COVER_COLORS = [
   'from-pink-500 to-rose-600',
 ];
 
-const GENRES = [
-  'Electronic', 'Hip-Hop', 'Ambient', 'Funk', 'Jazz',
-  'Rock', 'Pop', 'Classical', 'Lo-Fi', 'R&B', 'Other',
-];
-
-type Status =
-  | 'idle'
-  | 'preparing'
-  | 'signing-audio'
-  | 'signing-meta'
-  | 'uploading'
-  | 'saving'
-  | 'done';
+type Status = 'idle' | 'preparing' | 'signing' | 'uploading' | 'saving' | 'done';
 
 function hexToBytes(hex: string): Uint8Array {
   const h = hex.replace(/^0x/, '');
@@ -68,27 +55,20 @@ export default function UploadPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState('');
-  const [artist, setArtist] = useState('');
-  const [genre, setGenre] = useState('');
   const [fileDuration, setFileDuration] = useState(0);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
 
-  const loadFile = useCallback(
-    (f: File) => {
-      setFile(f);
-      if (!title) setTitle(f.name.replace(/\.[^.]+$/, ''));
-      const audio = new Audio();
-      const url = URL.createObjectURL(f);
-      audio.src = url;
-      audio.onloadedmetadata = () => {
-        setFileDuration(Math.floor(audio.duration));
-        URL.revokeObjectURL(url);
-      };
-    },
-    [title]
-  );
+  const loadFile = useCallback((f: File) => {
+    setFile(f);
+    const audio = new Audio();
+    const url = URL.createObjectURL(f);
+    audio.src = url;
+    audio.onloadedmetadata = () => {
+      setFileDuration(Math.floor(audio.duration));
+      URL.revokeObjectURL(url);
+    };
+  }, []);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -102,25 +82,16 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!file || !title || !address) return;
+    if (!file || !address) return;
     setError('');
     const trackId = generateId();
     const coverColor = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)];
 
     try {
-      // Step 1 — server computes erasure commitments for audio + metadata JSON
       setStatus('preparing');
-      const prep = await prepareUpload(
-        file, address, trackId,
-        title.trim(),
-        artist.trim() || address.slice(0, 8),
-        genre,
-        coverColor,
-        fileDuration
-      );
+      const prep = await prepareUpload(file, address, trackId);
 
-      // Step 2a — wallet signs registerBlob for the audio file (Petra popup 1/2)
-      setStatus('signing-audio');
+      setStatus('signing');
       const audioTx = await signAndSubmitTransaction({
         data: buildRegisterPayload(
           prep.deployerAddress,
@@ -130,40 +101,23 @@ export default function UploadPage() {
         ),
       });
 
-      // Step 2b — wallet signs registerBlob for the metadata JSON (Petra popup 2/2)
-      setStatus('signing-meta');
-      const metaTx = await signAndSubmitTransaction({
-        data: buildRegisterPayload(
-          prep.deployerAddress,
-          prep.metadata,
-          prep.expirationMicros,
-          prep.encoding
-        ),
-      });
-
-      // Step 3 — server waits for both txs then pushes blobs to Shelby RPC
       setStatus('uploading');
-      await commitUpload(prep.sessionId, audioTx.hash, metaTx.hash, address);
+      await commitUpload(prep.sessionId, audioTx.hash, address);
 
-      // Step 4 — persist track locally for play-count tracking
       setStatus('saving');
-      const track: Track = {
+      addPrivateTrack({
         id: trackId,
-        title: title.trim(),
-        artist: artist.trim() || address.slice(0, 8),
+        blobName: prep.audioBlobName,
+        audioUrl: prep.audioUrl,
         address,
         cid: prep.cid,
-        audioUrl: prep.audioUrl,
         coverColor,
         duration: fileDuration,
-        plays: 0,
         uploadedAt: Date.now(),
-        genre: genre || undefined,
-      };
-      addTrack(track);
+      });
 
       setStatus('done');
-      router.push(`/track/${track.id}`);
+      router.push(`/profile/${address}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed';
       setError(msg);
@@ -171,7 +125,6 @@ export default function UploadPage() {
     }
   };
 
-  /* ── Not connected ─────────────────────────────────────────── */
   if (!connected) {
     return (
       <div className="max-w-md mx-auto px-4 py-24 text-center">
@@ -182,8 +135,7 @@ export default function UploadPage() {
         </div>
         <h2 className="text-2xl font-bold text-white mb-3">Connect Your Wallet</h2>
         <p className="text-zinc-400 mb-8 leading-relaxed">
-          Connect your Petra wallet to sign uploads and pay your own ShelbyUSD
-          storage fees on Aptos Testnet.
+          Connect your Petra wallet to sign uploads and pay your own ShelbyUSD storage fees on Aptos Testnet.
         </p>
         <button
           onClick={() => connect('Petra')}
@@ -200,12 +152,13 @@ export default function UploadPage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">Upload Track</h1>
-      <p className="text-zinc-400 mb-8">
-        Stored on <span className="text-violet-400">Shelby Protocol</span> — your wallet
-        pays storage fees. Two Petra approvals required.
+      <p className="text-zinc-400 mb-2">
+        Stored on <span className="text-violet-400">Shelby Protocol</span> — one Petra approval required.
+      </p>
+      <p className="text-zinc-600 text-sm mb-8">
+        After uploading, go to your profile to add a title and make it public.
       </p>
 
-      {/* Drop zone */}
       <div
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
@@ -250,42 +203,6 @@ export default function UploadPage() {
         )}
       </div>
 
-      {/* Metadata */}
-      <div className="flex flex-col gap-4 mb-6">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-zinc-400">Track Title <span className="text-red-400">*</span></span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={busy}
-            placeholder="My awesome track"
-            className="bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none transition-colors disabled:opacity-50"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-zinc-400">Artist Name</span>
-          <input
-            value={artist}
-            onChange={(e) => setArtist(e.target.value)}
-            disabled={busy}
-            placeholder="Your stage name (optional)"
-            className="bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none transition-colors disabled:opacity-50"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-zinc-400">Genre</span>
-          <select
-            value={genre}
-            onChange={(e) => setGenre(e.target.value)}
-            disabled={busy}
-            className="bg-zinc-900 border border-zinc-700 focus:border-violet-500 rounded-xl px-4 py-3 text-white outline-none transition-colors disabled:opacity-50 appearance-none"
-          >
-            <option value="">Select genre…</option>
-            {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </label>
-      </div>
-
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-4 text-sm">
           {error}
@@ -297,18 +214,17 @@ export default function UploadPage() {
           <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
           <span className="text-zinc-300 text-sm">
             {status === 'preparing' && 'Computing storage commitments…'}
-            {status === 'signing-audio' && 'Approve audio registration in Petra (1/2)…'}
-            {status === 'signing-meta' && 'Approve metadata registration in Petra (2/2)…'}
+            {status === 'signing' && 'Approve audio registration in Petra…'}
             {status === 'uploading' && 'Uploading to Shelby Protocol…'}
             {status === 'saving' && 'Saving track…'}
-            {status === 'done' && 'Done! Redirecting…'}
+            {status === 'done' && 'Done! Redirecting to your profile…'}
           </span>
         </div>
       )}
 
       <button
         onClick={handleUpload}
-        disabled={!file || !title.trim() || busy}
+        disabled={!file || busy}
         className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-full transition-colors shadow-lg shadow-violet-900/30"
       >
         Upload to Shellody

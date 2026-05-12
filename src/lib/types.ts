@@ -12,3 +12,14 @@ export interface Track {
   txHash?: string;
   genre?: string;
 }
+
+export interface PrivateTrack {
+  id: string;
+  blobName: string;
+  audioUrl: string;
+  address: string;
+  cid: string;
+  coverColor: string;
+  duration: number;
+  uploadedAt: number;
+}

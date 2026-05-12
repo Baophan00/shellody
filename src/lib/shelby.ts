@@ -1,5 +1,3 @@
-// Client-side Shelby Protocol upload helpers.
-
 export interface BlobPayloadParams {
   blobName: string;
   merkleRootHex: string;
@@ -11,10 +9,18 @@ export interface PrepareResult {
   sessionId: string;
   cid: string;
   audioUrl: string;
+  audioBlobName: string;
   expirationMicros: number;
   encoding: number;
   deployerAddress: string;
   audio: BlobPayloadParams;
+}
+
+export interface PublishPrepareResult {
+  sessionId: string;
+  expirationMicros: number;
+  encoding: number;
+  deployerAddress: string;
   metadata: BlobPayloadParams;
 }
 
@@ -30,34 +36,54 @@ async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
 export async function prepareUpload(
   file: File,
   userAddress: string,
-  trackId: string,
-  title: string,
-  artist: string,
-  genre: string,
-  coverColor: string,
-  duration: number
+  trackId: string
 ): Promise<PrepareResult> {
   const form = new FormData();
   form.append('file', file);
   form.append('trackId', trackId);
   form.append('userAddress', userAddress);
-  form.append('title', title);
-  form.append('artist', artist);
-  form.append('genre', genre);
-  form.append('coverColor', coverColor);
-  form.append('duration', String(duration));
   return apiFetch<PrepareResult>('/api/upload/prepare', { method: 'POST', body: form });
 }
 
 export async function commitUpload(
   sessionId: string,
   audioTxHash: string,
-  metadataTxHash: string,
   userAddress: string
 ): Promise<void> {
   await apiFetch<{ ok: boolean }>('/api/upload/commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, audioTxHash, metadataTxHash, userAddress }),
+    body: JSON.stringify({ sessionId, audioTxHash, userAddress }),
+  });
+}
+
+export async function preparePublish(
+  trackId: string,
+  userAddress: string,
+  title: string,
+  artist: string,
+  genre: string,
+  coverColor: string,
+  duration: number,
+  audioUrl: string,
+  blobName: string,
+  cid: string
+): Promise<PublishPrepareResult> {
+  return apiFetch<PublishPrepareResult>('/api/publish/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trackId, userAddress, title, artist, genre, coverColor, duration, audioUrl, blobName, cid }),
+  });
+}
+
+export async function commitPublish(
+  sessionId: string,
+  metadataTxHash: string,
+  userAddress: string
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>('/api/publish/commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, metadataTxHash, userAddress }),
   });
 }
