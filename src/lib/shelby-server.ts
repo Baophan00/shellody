@@ -18,8 +18,10 @@ export function blobNameForTrack(trackId: string, filename: string): string {
   return `shellody/${trackId}${ext}`;
 }
 
-export function metadataBlobName(trackId: string): string {
-  return `shellody/tracks/${trackId}.json`;
+// Include a timestamp so retried publishes never collide with a previously
+// registered (but not uploaded) blob of the same name.
+export function metadataBlobName(trackId: string, timestamp: number): string {
+  return `shellody/tracks/${trackId}-${timestamp}.json`;
 }
 
 // URL encodes the blob owner's address so the proxy can look up the right account.

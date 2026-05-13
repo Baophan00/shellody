@@ -8,6 +8,7 @@ import TrackCard from '@/components/TrackCard';
 import PublishModal from '@/components/PublishModal';
 import { shortAddress } from '@/lib/utils';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
+import { usePlayer } from '@/context/PlayerContext';
 
 export default function ProfilePage() {
   const { address } = useParams<{ address: string }>();
@@ -19,6 +20,7 @@ export default function ProfilePage() {
   const [publishTarget, setPublishTarget] = useState<PrivateTrack | null>(null);
 
   const isOwn = myAddress?.toLowerCase() === address?.toLowerCase();
+  const { play, pause, playing, currentTrack } = usePlayer();
 
   useEffect(() => {
     const localById = new Map(getTracks().map((t) => [t.id, t]));
@@ -129,36 +131,60 @@ export default function ProfilePage() {
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {privateTracks.map((track) => (
-              <div
-                key={track.id}
-                className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3"
-              >
+            {privateTracks.map((track) => {
+              const isThisPlaying = playing && currentTrack?.id === track.id;
+              const asTrack = {
+                id: track.id,
+                title: track.title,
+                artist: track.artist,
+                address: track.address,
+                cid: track.cid,
+                audioUrl: track.audioUrl,
+                coverColor: track.coverColor,
+                duration: track.duration,
+                plays: 0,
+                uploadedAt: track.uploadedAt,
+                genre: track.genre,
+              };
+              return (
                 <div
-                  className={`w-10 h-10 rounded-lg bg-gradient-to-br ${track.coverColor} shrink-0 flex items-center justify-center`}
+                  key={track.id}
+                  className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3"
                 >
-                  <svg className="w-5 h-5 text-white/70" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
-                  </svg>
+                  {/* Play/pause button */}
+                  <button
+                    onClick={() => isThisPlaying ? pause() : play(asTrack)}
+                    className={`w-9 h-9 rounded-lg bg-gradient-to-br ${track.coverColor} shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity`}
+                  >
+                    {isThisPlaying ? (
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{track.title}</p>
+                    <p className="text-zinc-500 text-xs mt-0.5 truncate">
+                      {track.artist}
+                      {track.genre && <span className="text-zinc-600"> · {track.genre}</span>}
+                      <span className="text-zinc-700"> · {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}</span>
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setPublishTarget(track)}
+                    className="shrink-0 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
+                  >
+                    Make Public
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-zinc-400 text-sm truncate font-mono">
-                    {track.blobName.split('/').pop()}
-                  </p>
-                  <p className="text-zinc-600 text-xs mt-0.5">
-                    {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
-                    {' · '}
-                    {new Date(track.uploadedAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setPublishTarget(track)}
-                  className="shrink-0 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
-                >
-                  Make Public
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

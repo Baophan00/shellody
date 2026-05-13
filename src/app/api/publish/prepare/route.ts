@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const metaBlobName = metadataBlobName(trackId);
-    const expirationMicros = Date.now() * 1000 + 365 * 24 * 3600 * 1_000_000;
+    const now = Date.now();
+    const metaBlobName = metadataBlobName(trackId, now);
+    const expirationMicros = now * 1000 + 365 * 24 * 3600 * 1_000_000;
 
     const trackMetadata = {
       id: trackId,

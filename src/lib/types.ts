@@ -22,4 +22,7 @@ export interface PrivateTrack {
   coverColor: string;
   duration: number;
   uploadedAt: number;
+  title: string;
+  artist: string;
+  genre?: string;
 }
