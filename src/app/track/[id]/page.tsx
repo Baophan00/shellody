@@ -8,8 +8,6 @@ import { getTrackById } from '@/lib/storage'
 import { usePlayer } from '@/context/PlayerContext'
 import { Navigation } from '@/components/Navigation'
 import { Player } from '@/components/Player'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { cn, formatDuration, shortAddress } from '@/lib/utils'
 import { Play, Pause, Copy, Check } from 'lucide-react'
 
@@ -25,12 +23,6 @@ export default function TrackPage() {
     setLoaded(true)
   }, [id])
 
-  const copyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   const isActive = currentTrack?.id === track?.id
   const isPlaying = isActive && playing
 
@@ -44,21 +36,27 @@ export default function TrackPage() {
     }
   }
 
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Navigation />
 
-      <main className="mx-auto max-w-md px-4 py-10 pb-32">
+      <main className="mx-auto max-w-md px-6 pt-32 pb-32">
         {!loaded ? (
           <div>
-            <div className="w-full aspect-square max-w-sm mx-auto rounded-3xl bg-card/50 animate-pulse mb-8" />
-            <div className="h-8 bg-card/50 rounded animate-pulse mb-3" />
-            <div className="h-5 bg-card/50 rounded animate-pulse w-1/2 mx-auto" />
+            <div className="w-full aspect-square rounded-lg bg-muted animate-pulse mb-8" />
+            <div className="h-8 bg-muted rounded animate-pulse mb-3" />
+            <div className="h-5 bg-muted rounded animate-pulse w-1/2" />
           </div>
         ) : !track ? (
           <div className="text-center py-24">
             <p className="text-lg text-muted-foreground mb-4">Track not found.</p>
-            <Link href="/" className="text-primary hover:text-primary/80 transition-colors">
+            <Link href="/" className="text-sm underline text-muted-foreground hover:text-foreground">
               ← Back to feed
             </Link>
           </div>
@@ -67,106 +65,98 @@ export default function TrackPage() {
             {/* Cover art */}
             <div
               className={cn(
-                'relative w-full aspect-square max-w-sm mx-auto rounded-3xl mb-8 flex items-center justify-center shadow-2xl shadow-primary/20',
+                'relative w-full aspect-square rounded-lg mb-8 flex items-center justify-center',
                 track.coverColor
                   ? `bg-gradient-to-br ${track.coverColor}`
-                  : 'bg-gradient-to-br from-primary/60 to-accent/60'
+                  : 'bg-gradient-to-br from-primary/60 to-primary/20'
               )}
             >
               {isPlaying && (
-                <div className="absolute inset-0 rounded-3xl ring-2 ring-white/20 animate-pulse" />
+                <div className="absolute inset-0 rounded-lg ring-2 ring-foreground/10 animate-pulse" />
               )}
-              <Button
+              <button
                 onClick={handlePlayPause}
-                size="icon"
-                className="h-20 w-20 rounded-full bg-background/20 hover:bg-background/40 backdrop-blur-sm"
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-background/20 hover:bg-background/40 backdrop-blur-sm transition-colors"
               >
                 {isPlaying ? (
-                  <Pause className="h-8 w-8" />
+                  <Pause className="h-7 w-7 text-white" />
                 ) : (
-                  <Play className="h-8 w-8 translate-x-0.5" />
+                  <Play className="h-7 w-7 text-white translate-x-0.5" />
                 )}
-              </Button>
+              </button>
             </div>
 
             {/* Title + artist */}
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
-                {track.title}
-              </h1>
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold tracking-tight mb-1">{track.title}</h1>
               <Link
                 href={`/profile/${track.address}`}
-                className="text-primary hover:text-primary/80 text-lg transition-colors"
+                className="text-primary hover:text-primary/80 transition-colors"
               >
                 {track.artist || shortAddress(track.address)}
               </Link>
               {track.genre && (
-                <div className="mt-3">
-                  <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                    {track.genre}
-                  </span>
-                </div>
+                <span className="ml-3 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {track.genre}
+                </span>
               )}
             </div>
 
             {/* Stats */}
-            <Card className="bg-card/50 border-border/50 mb-4 overflow-hidden">
-              <div className="grid grid-cols-3 divide-x divide-border">
-                <div className="text-center py-5 px-3">
-                  <p className="text-2xl font-bold text-foreground">{track.plays.toLocaleString()}</p>
-                  <p className="text-muted-foreground text-xs mt-1">Plays</p>
-                </div>
-                <div className="text-center py-5 px-3">
-                  <p className="text-2xl font-bold text-foreground">{formatDuration(track.duration)}</p>
-                  <p className="text-muted-foreground text-xs mt-1">Duration</p>
-                </div>
-                <div className="text-center py-5 px-3">
-                  <p className="text-lg font-bold text-foreground truncate">{track.genre || '—'}</p>
-                  <p className="text-muted-foreground text-xs mt-1">Genre</p>
-                </div>
+            <div className="grid grid-cols-3 border border-border rounded-lg overflow-hidden mb-4">
+              <div className="text-center py-5 px-3 border-r border-border">
+                <p className="text-2xl font-bold tabular-nums">{track.plays.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">Plays</p>
               </div>
-            </Card>
+              <div className="text-center py-5 px-3 border-r border-border">
+                <p className="text-2xl font-bold font-mono">{formatDuration(track.duration)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Duration</p>
+              </div>
+              <div className="text-center py-5 px-3">
+                <p className="text-lg font-bold truncate">{track.genre || '—'}</p>
+                <p className="text-xs text-muted-foreground mt-1">Genre</p>
+              </div>
+            </div>
 
             {/* On-chain info */}
-            <Card className="bg-card/50 border-border/50 mb-4">
-              <CardContent className="p-5 space-y-4">
+            <div className="border border-border rounded-lg p-5 mb-4 space-y-4 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Shelby CID</p>
+                <p className="font-mono text-xs break-all leading-relaxed">{track.cid}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Uploader</p>
+                <Link
+                  href={`/profile/${track.address}`}
+                  className="text-primary text-xs font-mono hover:text-primary/80 break-all"
+                >
+                  {track.address}
+                </Link>
+              </div>
+              {track.txHash && (
                 <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Shelby CID</p>
-                  <p className="text-foreground text-xs font-mono break-all leading-relaxed">{track.cid}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Transaction</p>
+                  <p className="font-mono text-xs break-all">{track.txHash}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Uploader</p>
-                  <Link
-                    href={`/profile/${track.address}`}
-                    className="text-primary text-xs font-mono hover:text-primary/80 transition-colors break-all"
-                  >
-                    {track.address}
-                  </Link>
-                </div>
-                {track.txHash && (
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Transaction</p>
-                    <p className="text-foreground text-xs font-mono break-all">{track.txHash}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Uploaded</p>
-                  <p className="text-muted-foreground text-xs">
-                    {new Date(track.uploadedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Uploaded</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(track.uploadedAt).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric',
+                  })}
+                </p>
+              </div>
+            </div>
 
             {/* Share */}
-            <Button variant="outline" className="w-full gap-2" onClick={copyLink}>
+            <button
+              onClick={copyLink}
+              className="w-full flex items-center justify-center gap-2 border border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Link copied!' : 'Copy Share Link'}
-            </Button>
+              {copied ? 'Link copied!' : 'Copy share link'}
+            </button>
           </>
         )}
       </main>

@@ -6,12 +6,11 @@ import { Providers } from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: 'Shellody — Decentralized Music',
-  description:
-    'Upload, share, and discover music stored on Shelby Protocol and the Aptos blockchain.',
+  description: 'Upload, share, and discover music stored on Shelby Protocol and the Aptos blockchain.',
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1a3d35',
+  themeColor: '#ffffff',
 }
 
 export default function RootLayout({
@@ -20,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark bg-background">
+    <html lang="en" className="bg-background">
       <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
         <Providers>
           {children}

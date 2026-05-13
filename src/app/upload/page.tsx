@@ -10,8 +10,7 @@ import { Navigation } from '@/components/Navigation'
 import { Player } from '@/components/Player'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Upload, Music, Lock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Upload, Music, Lock, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 
 const COVER_COLORS = [
   'from-violet-600 to-blue-600',
@@ -170,17 +169,17 @@ export default function UploadPage() {
 
   if (!connected) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Navigation />
-        <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted mb-6">
-            <AlertCircle className="h-10 w-10 text-muted-foreground" />
-          </div>
-          <h1 className="text-2xl font-semibold text-foreground mb-2">Wallet Required</h1>
+        <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6">
+          <h1 className="text-2xl font-bold mb-2">Wallet Required</h1>
           <p className="text-muted-foreground text-center max-w-md mb-6">
-            Connect your Petra wallet to sign uploads and pay storage fees on Aptos Testnet.
+            Connect your Petra wallet to upload and share your music.
           </p>
-          <Button onClick={() => connect('Petra')} className="gap-2">
+          <Button
+            onClick={() => connect('Petra')}
+            className="bg-foreground text-background hover:bg-foreground/90"
+          >
             Connect Petra Wallet
           </Button>
         </main>
@@ -190,189 +189,149 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Navigation />
 
-      <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8 pb-32">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Upload Track</h1>
-          <p className="text-muted-foreground">
-            Stored on Shelby Protocol — one Petra approval required.
-            After uploading, go to your profile to make it public.
-          </p>
-        </div>
+      <main className="mx-auto max-w-xl px-6 pt-32 pb-32">
+        <h1 className="text-4xl font-bold tracking-tight mb-2">Upload Track</h1>
+        <p className="text-muted-foreground mb-12">
+          Stored on Shelby Protocol — one Petra approval required. Tracks are private by default.
+        </p>
 
         {status === 'done' ? (
-          <Card className="border-accent/50 bg-accent/5">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 mb-4">
-                <CheckCircle2 className="h-8 w-8 text-accent" />
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">Upload Complete</h2>
-              <p className="text-muted-foreground text-center">
-                Your track has been uploaded as private. Redirecting to your profile…
-              </p>
-            </CardContent>
-          </Card>
+          <div className="py-16 text-center">
+            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Upload Complete</h2>
+            <p className="text-muted-foreground">
+              Your track has been uploaded as private. Redirecting…
+            </p>
+          </div>
         ) : (
-          <div className="space-y-6">
-            {/* File Upload Area */}
-            <Card>
-              <CardContent className="p-6">
-                <div
-                  className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-                    busy
-                      ? 'opacity-60 cursor-default'
-                      : 'cursor-pointer'
-                  } ${
-                    dragActive
-                      ? 'border-primary bg-primary/5'
-                      : file
-                      ? 'border-accent bg-accent/5'
-                      : 'border-border hover:border-muted-foreground/50'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={() => !busy && fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="audio/*,.mp3,.wav,.flac,.ogg,.aac"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
+          <div className="space-y-8">
+            {/* Drop zone */}
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                busy ? 'opacity-60 cursor-default' : 'cursor-pointer'
+              } ${
+                dragActive || file
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-muted-foreground'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => !busy && fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*,.mp3,.wav,.flac,.ogg,.aac"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
 
-                  {file ? (
-                    <div className="flex flex-col items-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20 mb-4">
-                        <Music className="h-7 w-7 text-accent" />
-                      </div>
-                      <p className="font-medium text-foreground mb-1">{file.name}</p>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                        {fileDuration > 0 && (
-                          <> &middot; {Math.floor(fileDuration / 60)}:{String(fileDuration % 60).padStart(2, '0')}</>
-                        )}
-                      </p>
-                      {!busy && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            fileInputRef.current?.click()
-                          }}
-                        >
-                          Change File
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
-                        <Upload className="h-7 w-7 text-muted-foreground" />
-                      </div>
-                      <p className="font-medium text-foreground mb-1">
-                        Drop your audio file here
-                      </p>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        MP3, WAV, FLAC, OGG, or AAC
-                      </p>
-                      <Button variant="outline">Browse Files</Button>
-                    </div>
+              {file ? (
+                <div className="flex flex-col items-center">
+                  <Music className="h-8 w-8 text-primary mb-4" />
+                  <p className="font-medium mb-1">{file.name}</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                    {fileDuration > 0 && (
+                      <> &middot; {Math.floor(fileDuration / 60)}:{String(fileDuration % 60).padStart(2, '0')}</>
+                    )}
+                  </p>
+                  {!busy && (
+                    <button
+                      className="text-sm text-muted-foreground hover:text-foreground underline"
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+                    >
+                      Change file
+                    </button>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <Upload className="h-8 w-8 text-muted-foreground mb-4" />
+                  <p className="font-medium mb-1">Drop your audio file here</p>
+                  <p className="text-sm text-muted-foreground mb-4">MP3, WAV, FLAC, or AAC up to 50MB</p>
+                  <button className="text-sm underline hover:text-muted-foreground">Browse files</button>
+                </div>
+              )}
+            </div>
 
-            {/* Track Details */}
-            <Card>
-              <CardContent className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Track Title <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    placeholder="My awesome track"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={busy}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Artist Name
-                  </label>
-                  <Input
-                    placeholder="Your stage name (optional)"
-                    value={artist}
-                    onChange={(e) => setArtist(e.target.value)}
-                    disabled={busy}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Genre
-                  </label>
-                  <select
-                    value={genre}
-                    onChange={(e) => setGenre(e.target.value)}
-                    disabled={busy}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring disabled:opacity-50"
-                  >
-                    <option value="">Select genre…</option>
-                    {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Metadata */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Track Title <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  placeholder="Enter track title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  disabled={busy}
+                  className="h-12"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Artist Name</label>
+                <Input
+                  placeholder="Your stage name (optional)"
+                  value={artist}
+                  onChange={(e) => setArtist(e.target.value)}
+                  disabled={busy}
+                  className="h-12"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Genre</label>
+                <select
+                  value={genre}
+                  onChange={(e) => setGenre(e.target.value)}
+                  disabled={busy}
+                  className="w-full h-12 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-ring disabled:opacity-50"
+                >
+                  <option value="">Select genre…</option>
+                  {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+            </div>
 
             {/* Privacy notice */}
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
-              <Lock className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Private by Default</p>
-                <p className="text-sm text-muted-foreground">
-                  Your track will be saved privately. You can make it public from your profile at any time.
-                </p>
-              </div>
+            <div className="flex items-start gap-3 text-sm text-muted-foreground">
+              <Lock className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <p>Your track will be uploaded as private. You can make it public from your profile at any time.</p>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
-                <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive">{error}</p>
+              <div className="flex items-start gap-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <p>{error}</p>
               </div>
             )}
 
             {/* Status */}
             {busy && (
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <p className="text-sm text-foreground">{statusLabel(status)}</p>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <p>{statusLabel(status)}</p>
               </div>
             )}
 
-            {/* Upload button */}
             <Button
-              className="w-full h-12 text-base"
+              className="w-full h-12 bg-foreground text-background hover:bg-foreground/90"
               disabled={!file || !title.trim() || busy}
               onClick={handleUpload}
             >
               {busy ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Uploading…
                 </>
               ) : (
-                <>
-                  <Upload className="mr-2 h-5 w-5" />
-                  Upload Track
-                </>
+                'Upload Track'
               )}
             </Button>
 
