@@ -20,6 +20,8 @@ interface PlayerContextType {
   shuffle: boolean;
   repeat: boolean;
   nextTrack: Track | null;
+  volume: number;
+  muted: boolean;
   play: (track: Track) => void;
   pause: () => void;
   resume: () => void;
@@ -29,6 +31,8 @@ interface PlayerContextType {
   setQueue: (tracks: Track[]) => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
+  setVolume: (v: number) => void;
+  toggleMute: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -41,6 +45,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const queueIndexRef = useRef<number>(-1);
   const shuffleRef = useRef(false);
   const repeatRef = useRef(false);
+  const volumeRef = useRef(0.8);
+  const mutedRef = useRef(false);
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -52,6 +58,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [shuffle, setShuffleState] = useState(false);
   const [repeat, setRepeatState] = useState(false);
   const [nextTrack, setNextTrack] = useState<Track | null>(null);
+  const [volume, setVolumeState] = useState(0.8);
+  const [muted, setMuted] = useState(false);
 
   // Recompute skip buttons and "Next up" track after any state change.
   const updatePlaybackState = useCallback((idx: number) => {
@@ -91,6 +99,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setDuration(0);
 
     el.src = track.audioUrl;
+    el.volume = volumeRef.current;
+    el.muted = mutedRef.current;
     el.load();
     el.play()
       .then(() => {
@@ -188,6 +198,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [playAtIndex, pickRandomIndex]);
 
+  const setVolume = useCallback((v: number) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    volumeRef.current = clamped;
+    mutedRef.current = false;
+    setVolumeState(clamped);
+    setMuted(false);
+    if (audioRef.current) {
+      audioRef.current.volume = clamped;
+      audioRef.current.muted = false;
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    if (audioRef.current) audioRef.current.muted = next;
+  }, []);
+
   const pause = useCallback(() => {
     audioRef.current?.pause();
     setPlaying(false);
@@ -208,8 +237,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       value={{
         currentTrack, playing, currentTime, duration, plays,
         canSkipNext, canSkipPrev, shuffle, repeat, nextTrack,
+        volume, muted,
         play, pause, resume, seek, playNext, playPrev,
-        setQueue, toggleShuffle, toggleRepeat,
+        setQueue, toggleShuffle, toggleRepeat, setVolume, toggleMute,
       }}
     >
       <audio

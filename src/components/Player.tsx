@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat } from 'lucide-react'
 import { usePlayer } from '@/context/PlayerContext'
 import { Slider } from '@/components/ui/slider'
@@ -20,12 +19,12 @@ export function Player() {
     currentTrack, playing, currentTime, duration,
     canSkipPrev, canSkipNext,
     shuffle, repeat, nextTrack,
+    volume, muted,
     pause, resume, seek,
     playNext, playPrev,
     toggleShuffle, toggleRepeat,
+    setVolume, toggleMute,
   } = usePlayer()
-  const [volume, setVolume] = useState(0.8)
-  const [isMuted, setIsMuted] = useState(false)
 
   if (!currentTrack) return null
 
@@ -142,20 +141,17 @@ export function Player() {
         <div className="hidden flex-1 items-center justify-end gap-3 sm:flex">
           <button
             className="text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={toggleMute}
           >
-            {isMuted || volume === 0 ? (
+            {muted || volume === 0 ? (
               <VolumeX className="h-4 w-4" />
             ) : (
               <Volume2 className="h-4 w-4" />
             )}
           </button>
           <Slider
-            value={[isMuted ? 0 : volume * 100]}
-            onValueChange={(value) => {
-              setVolume(value[0] / 100)
-              if (isMuted) setIsMuted(false)
-            }}
+            value={[muted ? 0 : volume * 100]}
+            onValueChange={(value) => setVolume(value[0] / 100)}
             max={100}
             className="w-24"
           />
