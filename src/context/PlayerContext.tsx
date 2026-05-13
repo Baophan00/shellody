@@ -8,13 +8,13 @@ import {
   ReactNode,
 } from 'react';
 import { Track } from '@/lib/types';
-import { incrementPlays } from '@/lib/storage';
 
 interface PlayerContextType {
   currentTrack: Track | null;
   playing: boolean;
   currentTime: number;
   duration: number;
+  plays: Record<string, number>;
   play: (track: Track) => void;
   pause: () => void;
   resume: () => void;
@@ -29,6 +29,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Real-time play count overrides: trackId → count visible this session
+  const [plays, setPlays] = useState<Record<string, number>>({});
+
+  const recordPlay = useCallback((track: Track) => {
+    // Optimistic increment — show immediately without waiting for the API
+    setPlays((prev) => ({
+      ...prev,
+      [track.id]: (prev[track.id] ?? track.plays) + 1,
+    }));
+    // Persist server-side (fire-and-forget)
+    fetch('/api/plays', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackId: track.id }),
+    }).catch(console.error);
+  }, []);
 
   const play = useCallback(
     (track: Track) => {
@@ -48,11 +64,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       el.play()
         .then(() => {
           setPlaying(true);
-          incrementPlays(track.id);
+          recordPlay(track);
         })
         .catch(console.error);
     },
-    [currentTrack]
+    [currentTrack, recordPlay]
   );
 
   const pause = useCallback(() => {
@@ -72,9 +88,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   return (
     <PlayerContext.Provider
-      value={{ currentTrack, playing, currentTime, duration, play, pause, resume, seek }}
+      value={{ currentTrack, playing, currentTime, duration, plays, play, pause, resume, seek }}
     >
-      {/* Hidden audio element — AudioPlayer component renders the visible UI */}
       <audio
         ref={audioRef}
         onTimeUpdate={() =>

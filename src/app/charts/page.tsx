@@ -21,19 +21,16 @@ export default function ChartsPage() {
   const [chart, setChart] = useState<ChartEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [aiError, setAiError] = useState(false)
-  const { currentTrack, playing, play, pause, resume } = usePlayer()
+  const { currentTrack, playing, plays, play, pause, resume } = usePlayer()
 
   useEffect(() => {
     async function load() {
       let allTracks = getTracks()
       try {
+        // Feed already merges server-side play counts — use those directly.
         const feedRes = await fetch('/api/feed')
         const { tracks: shelbyTracks } = await feedRes.json()
-        const localById = new Map(allTracks.map((t) => [t.id, t]))
-        allTracks = shelbyTracks.map((t: Track) => ({
-          ...t,
-          plays: localById.get(t.id)?.plays ?? t.plays,
-        }))
+        allTracks = shelbyTracks as Track[]
       } catch {
         // use local tracks
       }
@@ -134,6 +131,7 @@ export default function ChartsPage() {
                   rank={index + 1}
                   isCurrentTrackActive={currentTrack?.id === entry.track.id}
                   playing={playing}
+                  plays={plays}
                   onPlay={() => handlePlay(entry.track)}
                   aiError={aiError}
                 />
@@ -157,6 +155,7 @@ function ChartRow({
   rank,
   isCurrentTrackActive,
   playing,
+  plays,
   onPlay,
   aiError,
 }: {
@@ -164,12 +163,14 @@ function ChartRow({
   rank: number
   isCurrentTrackActive: boolean
   playing: boolean
+  plays: Record<string, number>
   onPlay: () => void
   aiError: boolean
 }) {
   const { profile } = useProfile(entry.track.address)
   const isTrackPlaying = isCurrentTrackActive && playing
   const artistLabel = profile?.displayName || entry.track.artist || shortAddress(entry.track.address)
+  const displayPlays = plays[entry.track.id] ?? entry.track.plays
 
   return (
     <div
@@ -214,7 +215,7 @@ function ChartRow({
       </div>
 
       <div className="text-right font-mono text-sm shrink-0">
-        <p className="font-semibold">{entry.track.plays.toLocaleString()}</p>
+        <p className="font-semibold">{displayPlays.toLocaleString()}</p>
         <p className="text-xs text-muted-foreground">plays</p>
         <p className="text-xs text-muted-foreground">{formatDuration(entry.track.duration)}</p>
       </div>

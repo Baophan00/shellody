@@ -21,11 +21,12 @@ interface TrackCardProps {
 }
 
 export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCardProps) {
-  const { currentTrack, playing, play, pause, resume } = usePlayer()
+  const { currentTrack, playing, plays, play, pause, resume } = usePlayer()
   const { profile } = useProfile(track.address)
   const isCurrentTrack = currentTrack?.id === track.id
   const isCurrentlyPlaying = isCurrentTrack && playing
   const artistLabel = profile?.displayName || track.artist || shortAddress(track.address)
+  const displayPlays = plays[track.id] ?? track.plays
 
   const handlePlay = () => {
     if (isCurrentTrack) {
@@ -94,7 +95,7 @@ export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCar
       </div>
 
       <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
-        <span className="hidden sm:inline">{formatPlays(track.plays)} plays</span>
+        <span className="hidden sm:inline">{formatPlays(displayPlays)} plays</span>
         <span>{formatDuration(track.duration)}</span>
         {onDelete && (
           <button

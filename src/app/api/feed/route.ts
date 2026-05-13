@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getShelbyClient } from '@/lib/shelby-server';
+import { getPlayCounts } from '@/lib/plays-store';
 import { Order_By } from '@shelby-protocol/sdk/node';
 import { Track } from '@/lib/types';
 
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
 
     const written = blobs.filter((b) => b.isWritten && !b.isDeleted);
 
+    const playCounts = getPlayCounts();
+
     const tracks = (
       await Promise.allSettled(
         written.map(async (blobMeta) => {
@@ -34,7 +37,9 @@ export async function GET(req: NextRequest) {
             blobName: blobMeta.blobNameSuffix,
           });
           const text = await new Response(blob.readable as ReadableStream).text();
-          return JSON.parse(text) as Track;
+          const track = JSON.parse(text) as Track;
+          // Merge server-side play counts (always >= the static value in the blob)
+          return { ...track, plays: playCounts[track.id] ?? track.plays };
         })
       )
     )
