@@ -7,7 +7,6 @@ import {
   DEFAULT_CHUNKSET_SIZE_BYTES,
 } from '@shelby-protocol/sdk/node';
 import { metadataBlobName } from '@/lib/shelby-server';
-import { createSession } from '@/lib/session-store';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     const now = Date.now();
     const metaBlobName = metadataBlobName(trackId, now);
-    const expirationMicros = now * 1000 + 365 * 24 * 3600 * 1_000_000;
+    const expirationMicros = now * 1000 + 90 * 24 * 3600 * 1_000_000;
 
     const trackMetadata = {
       id: trackId,
@@ -36,18 +35,19 @@ export async function POST(req: NextRequest) {
       coverColor,
       duration,
       plays: 0,
-      uploadedAt: Date.now(),
+      uploadedAt: now,
     };
 
-    const metadataBlobData = new TextEncoder().encode(JSON.stringify(trackMetadata));
+    // Exact JSON content — client sends this back in commit so bytes are identical
+    const metadataContent = JSON.stringify(trackMetadata);
+    const metadataBlobData = new TextEncoder().encode(metadataContent);
     const provider = await createDefaultErasureCodingProvider();
     const metaCommitments = await generateCommitments(provider, metadataBlobData);
     const metaNumChunksets = expectedTotalChunksets(metadataBlobData.length, DEFAULT_CHUNKSET_SIZE_BYTES);
 
-    const sessionId = createSession([{ blobData: metadataBlobData, blobName: metaBlobName }]);
-
     return NextResponse.json({
-      sessionId,
+      metaBlobName,
+      metadataContent,
       expirationMicros,
       encoding: 0,
       deployerAddress: SHELBY_DEPLOYER,

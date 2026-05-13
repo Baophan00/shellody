@@ -7,7 +7,6 @@ import {
   DEFAULT_CHUNKSET_SIZE_BYTES,
 } from '@shelby-protocol/sdk/node';
 import { blobNameForTrack, audioUrlFromBlobName, contentId } from '@/lib/shelby-server';
-import { createSession } from '@/lib/session-store';
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const audioBlobName = blobNameForTrack(trackId, file.name);
     const audioUrl = audioUrlFromBlobName(audioBlobName, userAddress);
-    const expirationMicros = Date.now() * 1000 + 365 * 24 * 3600 * 1_000_000;
+    const expirationMicros = Date.now() * 1000 + 90 * 24 * 3600 * 1_000_000;
 
     const arrayBuffer = await file.arrayBuffer();
     const audioBlobData = new Uint8Array(arrayBuffer);
@@ -35,10 +34,7 @@ export async function POST(req: NextRequest) {
     const audioNumChunksets = expectedTotalChunksets(audioBlobData.length, DEFAULT_CHUNKSET_SIZE_BYTES);
     const cid = await contentId(audioBlobData);
 
-    const sessionId = createSession([{ blobData: audioBlobData, blobName: audioBlobName }]);
-
     return NextResponse.json({
-      sessionId,
       cid,
       audioUrl,
       audioBlobName,
