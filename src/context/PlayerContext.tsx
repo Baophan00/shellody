@@ -17,6 +17,9 @@ interface PlayerContextType {
   plays: Record<string, number>;
   canSkipNext: boolean;
   canSkipPrev: boolean;
+  shuffle: boolean;
+  repeat: boolean;
+  nextTrack: Track | null;
   play: (track: Track) => void;
   pause: () => void;
   resume: () => void;
@@ -24,6 +27,8 @@ interface PlayerContextType {
   playNext: () => void;
   playPrev: () => void;
   setQueue: (tracks: Track[]) => void;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -31,10 +36,11 @@ const PlayerContext = createContext<PlayerContextType | null>(null);
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Use refs for queue state so onEnded / playNext always see fresh values
-  // without needing to re-register the event listener.
+  // Refs so onEnded always reads the latest values without stale closures.
   const queueRef = useRef<Track[]>([]);
   const queueIndexRef = useRef<number>(-1);
+  const shuffleRef = useRef(false);
+  const repeatRef = useRef(false);
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -43,6 +49,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [plays, setPlays] = useState<Record<string, number>>({});
   const [canSkipNext, setCanSkipNext] = useState(false);
   const [canSkipPrev, setCanSkipPrev] = useState(false);
+  const [shuffle, setShuffleState] = useState(false);
+  const [repeat, setRepeatState] = useState(false);
+  const [nextTrack, setNextTrack] = useState<Track | null>(null);
+
+  // Recompute skip buttons and "Next up" track after any state change.
+  const updatePlaybackState = useCallback((idx: number) => {
+    const q = queueRef.current;
+    setCanSkipPrev(idx > 0);
+    // With shuffle there's always a random next track (if queue has >1 item).
+    setCanSkipNext(shuffleRef.current ? q.length > 1 : idx < q.length - 1);
+    // "Next up" only makes sense when not shuffling and not repeating.
+    if (repeatRef.current || shuffleRef.current) {
+      setNextTrack(null);
+    } else {
+      setNextTrack(q[idx + 1] ?? null);
+    }
+  }, []);
 
   const recordPlay = useCallback((track: Track) => {
     setPlays((prev) => ({
@@ -56,19 +79,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }).catch(console.error);
   }, []);
 
-  const updateSkipState = useCallback((idx: number) => {
-    setCanSkipPrev(idx > 0);
-    setCanSkipNext(idx < queueRef.current.length - 1);
-  }, []);
-
-  // Core internal function — starts audio at a queue position.
   const playAtIndex = useCallback((idx: number) => {
     const track = queueRef.current[idx];
     if (!track || !audioRef.current) return;
     const el = audioRef.current;
 
     queueIndexRef.current = idx;
-    updateSkipState(idx);
+    updatePlaybackState(idx);
     setCurrentTrack(track);
     setCurrentTime(0);
     setDuration(0);
@@ -81,61 +98,95 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         recordPlay(track);
       })
       .catch(console.error);
-  }, [recordPlay, updateSkipState]);
+  }, [recordPlay, updatePlaybackState]);
 
-  const play = useCallback(
-    (track: Track) => {
-      const el = audioRef.current;
-      if (!el) return;
+  const play = useCallback((track: Track) => {
+    const el = audioRef.current;
+    if (!el) return;
 
-      // Same track — just resume.
-      if (currentTrack?.id === track.id) {
-        el.play().then(() => setPlaying(true)).catch(console.error);
-        return;
-      }
+    if (currentTrack?.id === track.id) {
+      el.play().then(() => setPlaying(true)).catch(console.error);
+      return;
+    }
 
-      // Look up in the current queue first.
-      const idx = queueRef.current.findIndex((t) => t.id === track.id);
-      if (idx !== -1) {
-        playAtIndex(idx);
-      } else {
-        // Played from outside any queue — create a singleton queue.
-        queueRef.current = [track];
-        queueIndexRef.current = 0;
-        updateSkipState(0);
-        playAtIndex(0);
-      }
-    },
-    [currentTrack, playAtIndex, updateSkipState]
-  );
+    const idx = queueRef.current.findIndex((t) => t.id === track.id);
+    if (idx !== -1) {
+      playAtIndex(idx);
+    } else {
+      queueRef.current = [track];
+      queueIndexRef.current = 0;
+      updatePlaybackState(0);
+      playAtIndex(0);
+    }
+  }, [currentTrack, playAtIndex, updatePlaybackState]);
+
+  const pickRandomIndex = useCallback(() => {
+    const q = queueRef.current;
+    if (q.length <= 1) return 0;
+    let idx;
+    do { idx = Math.floor(Math.random() * q.length); }
+    while (idx === queueIndexRef.current);
+    return idx;
+  }, []);
 
   const playNext = useCallback(() => {
-    const nextIdx = queueIndexRef.current + 1;
-    if (nextIdx < queueRef.current.length) {
-      playAtIndex(nextIdx);
+    if (shuffleRef.current && queueRef.current.length > 1) {
+      playAtIndex(pickRandomIndex());
+    } else {
+      const nextIdx = queueIndexRef.current + 1;
+      if (nextIdx < queueRef.current.length) playAtIndex(nextIdx);
     }
-  }, [playAtIndex]);
+  }, [playAtIndex, pickRandomIndex]);
 
   const playPrev = useCallback(() => {
     const prevIdx = queueIndexRef.current - 1;
-    if (prevIdx >= 0) {
-      playAtIndex(prevIdx);
-    }
+    if (prevIdx >= 0) playAtIndex(prevIdx);
   }, [playAtIndex]);
 
-  // Called by pages when they load their track list.
   const setQueue = useCallback((tracks: Track[]) => {
     queueRef.current = tracks;
-    // Re-sync the current index in case the current track is already playing.
     const currentId = queueRef.current[queueIndexRef.current]?.id;
     const newIdx = currentId ? tracks.findIndex((t) => t.id === currentId) : -1;
-    if (newIdx !== -1) {
-      queueIndexRef.current = newIdx;
-      updateSkipState(newIdx);
-    } else {
-      updateSkipState(queueIndexRef.current);
+    const idx = newIdx !== -1 ? newIdx : queueIndexRef.current;
+    if (newIdx !== -1) queueIndexRef.current = newIdx;
+    updatePlaybackState(idx);
+  }, [updatePlaybackState]);
+
+  const toggleShuffle = useCallback(() => {
+    const next = !shuffleRef.current;
+    shuffleRef.current = next;
+    // Turning on shuffle clears repeat.
+    if (next) { repeatRef.current = false; setRepeatState(false); }
+    setShuffleState(next);
+    updatePlaybackState(queueIndexRef.current);
+  }, [updatePlaybackState]);
+
+  const toggleRepeat = useCallback(() => {
+    const next = !repeatRef.current;
+    repeatRef.current = next;
+    // Turning on repeat clears shuffle.
+    if (next) { shuffleRef.current = false; setShuffleState(false); }
+    setRepeatState(next);
+    updatePlaybackState(queueIndexRef.current);
+  }, [updatePlaybackState]);
+
+  const handleEnded = useCallback(() => {
+    if (repeatRef.current && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().then(() => setPlaying(true)).catch(console.error);
+      return;
     }
-  }, [updateSkipState]);
+    if (shuffleRef.current && queueRef.current.length > 1) {
+      playAtIndex(pickRandomIndex());
+      return;
+    }
+    const nextIdx = queueIndexRef.current + 1;
+    if (nextIdx < queueRef.current.length) {
+      playAtIndex(nextIdx);
+    } else {
+      setPlaying(false);
+    }
+  }, [playAtIndex, pickRandomIndex]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -152,21 +203,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setCurrentTime(time);
   }, []);
 
-  const handleEnded = useCallback(() => {
-    const nextIdx = queueIndexRef.current + 1;
-    if (nextIdx < queueRef.current.length) {
-      playAtIndex(nextIdx);
-    } else {
-      setPlaying(false);
-    }
-  }, [playAtIndex]);
-
   return (
     <PlayerContext.Provider
       value={{
         currentTrack, playing, currentTime, duration, plays,
-        canSkipNext, canSkipPrev,
-        play, pause, resume, seek, playNext, playPrev, setQueue,
+        canSkipNext, canSkipPrev, shuffle, repeat, nextTrack,
+        play, pause, resume, seek, playNext, playPrev,
+        setQueue, toggleShuffle, toggleRepeat,
       }}
     >
       <audio
