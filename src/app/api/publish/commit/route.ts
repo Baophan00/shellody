@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getShelbyClient } from '@/lib/shelby-server';
 
+const TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timed out after ${ms / 1000}s: ${label}`)), ms)
+    ),
+  ]);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { metadataTxHash, userAddress, metaBlobName, metadataContent } = await req.json();
@@ -14,8 +25,18 @@ export async function POST(req: NextRequest) {
 
     const blobData = new TextEncoder().encode(metadataContent);
     const client = getShelbyClient();
-    await client.aptos.waitForTransaction({ transactionHash: metadataTxHash });
-    await client.rpc.putBlob({ account: userAddress, blobName: metaBlobName, blobData });
+
+    await withTimeout(
+      client.aptos.waitForTransaction({ transactionHash: metadataTxHash }),
+      TIMEOUT_MS,
+      'waitForTransaction'
+    );
+
+    await withTimeout(
+      client.rpc.putBlob({ account: userAddress, blobName: metaBlobName, blobData }),
+      TIMEOUT_MS,
+      'putBlob'
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
