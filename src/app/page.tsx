@@ -6,12 +6,14 @@ import { getTracks } from '@/lib/storage'
 import { TrackCard } from '@/components/TrackCard'
 import { Navigation } from '@/components/Navigation'
 import { Player } from '@/components/Player'
+import { usePlayer } from '@/context/PlayerContext'
 import Link from 'next/link'
 
 export default function FeedPage() {
   const [tracks, setTracks] = useState<Track[]>([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
+  const { setQueue } = usePlayer()
 
   useEffect(() => {
     const localById = new Map(getTracks().map((t) => [t.id, t]))
@@ -24,10 +26,11 @@ export default function FeedPage() {
           plays: localById.get(t.id)?.plays ?? t.plays,
         }))
         setTracks(merged)
+        setQueue(merged)
       })
       .catch(() => setError(true))
       .finally(() => setLoaded(true))
-  }, [])
+  }, [setQueue])
 
   return (
     <div className="min-h-screen">

@@ -15,7 +15,7 @@ function formatTime(seconds: number) {
 }
 
 export function Player() {
-  const { currentTrack, playing, currentTime, duration, pause, resume, seek } = usePlayer()
+  const { currentTrack, playing, currentTime, duration, canSkipPrev, canSkipNext, pause, resume, seek, playNext, playPrev } = usePlayer()
   const [volume, setVolume] = useState(0.8)
   const [isMuted, setIsMuted] = useState(false)
 
@@ -48,7 +48,11 @@ export function Player() {
         {/* Controls + seek */}
         <div className="flex flex-1 flex-col items-center gap-1">
           <div className="flex items-center gap-3">
-            <button className="text-muted-foreground hover:text-foreground transition-colors" disabled>
+            <button
+              onClick={playPrev}
+              disabled={!canSkipPrev}
+              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
               <SkipBack className="h-4 w-4" />
             </button>
             <button
@@ -61,7 +65,11 @@ export function Player() {
                 <Play className="h-4 w-4 translate-x-0.5" />
               )}
             </button>
-            <button className="text-muted-foreground hover:text-foreground transition-colors" disabled>
+            <button
+              onClick={playNext}
+              disabled={!canSkipNext}
+              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
               <SkipForward className="h-4 w-4" />
             </button>
           </div>

@@ -21,7 +21,7 @@ export default function ChartsPage() {
   const [chart, setChart] = useState<ChartEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [aiError, setAiError] = useState(false)
-  const { currentTrack, playing, plays, play, pause, resume } = usePlayer()
+  const { currentTrack, playing, plays, play, pause, resume, setQueue } = usePlayer()
 
   useEffect(() => {
     async function load() {
@@ -45,6 +45,7 @@ export default function ChartsPage() {
         const data = await res.json()
         if (data.chart?.length) {
           setChart(data.chart)
+          setQueue(data.chart.map((e: ChartEntry) => e.track))
           return
         }
         throw new Error('Empty chart response')
@@ -55,12 +56,13 @@ export default function ChartsPage() {
           .slice(0, 10)
           .map((track, i) => ({ rank: i + 1, track, reason: '' }))
         setChart(fallback)
+        setQueue(fallback.map((e) => e.track))
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [setQueue])
 
   const handlePlay = (track: Track) => {
     if (currentTrack?.id === track.id) {

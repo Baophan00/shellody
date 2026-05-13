@@ -41,7 +41,7 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false)
 
   const isOwn = myAddress?.toLowerCase() === address?.toLowerCase()
-  const { play, pause, resume, playing, currentTrack } = usePlayer()
+  const { play, pause, resume, playing, currentTrack, setQueue } = usePlayer()
   const { profile, refetch: refetchProfile } = useProfile(address)
 
   const avatarColor = GRADIENTS[parseInt(address?.slice(2, 4) ?? '0', 16) % GRADIENTS.length]
@@ -56,10 +56,11 @@ export default function ProfilePage() {
           plays: localById.get(t.id)?.plays ?? t.plays,
         }))
         setTracks(merged)
+        setQueue(merged)
       })
       .catch(() => setTracks([]))
       .finally(() => setLoaded(true))
-  }, [address])
+  }, [address, setQueue])
 
   useEffect(() => {
     if (isOwn) {
