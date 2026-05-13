@@ -13,6 +13,13 @@ export interface Track {
   genre?: string;
 }
 
+export interface UserProfile {
+  address: string
+  displayName: string
+  avatarDataUrl?: string
+  updatedAt: number
+}
+
 export interface PrivateTrack {
   id: string;
   blobName: string;

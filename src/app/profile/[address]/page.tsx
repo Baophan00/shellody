@@ -6,14 +6,18 @@ import Link from 'next/link'
 import { Track, PrivateTrack } from '@/lib/types'
 import { getTracks, getPrivateTracks, removePrivateTrack } from '@/lib/storage'
 import { TrackCard } from '@/components/TrackCard'
+import { TrackArt } from '@/components/TrackArt'
 import PublishModal from '@/components/PublishModal'
+import DeleteTrackModal from '@/components/DeleteTrackModal'
+import EditProfileModal from '@/components/EditProfileModal'
+import { useProfile } from '@/hooks/useProfile'
 import { cn, formatDuration } from '@/lib/utils'
 import { useWallet } from '@aptos-labs/wallet-adapter-react'
 import { usePlayer } from '@/context/PlayerContext'
 import { Navigation } from '@/components/Navigation'
 import { Player } from '@/components/Player'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Play, Pause, Globe, Music, Wallet, Copy, Check } from 'lucide-react'
+import { Play, Pause, Globe, Music, Wallet, Copy, Check, Pencil, Trash2 } from 'lucide-react'
 
 const GRADIENTS = [
   'from-violet-600 to-blue-600',
@@ -32,10 +36,13 @@ export default function ProfilePage() {
   const [privateTracks, setPrivateTracks] = useState<PrivateTrack[]>([])
   const [loaded, setLoaded] = useState(false)
   const [publishTarget, setPublishTarget] = useState<PrivateTrack | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string; artist: string; isPublic: boolean } | null>(null)
+  const [editingProfile, setEditingProfile] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const isOwn = myAddress?.toLowerCase() === address?.toLowerCase()
   const { play, pause, resume, playing, currentTrack } = usePlayer()
+  const { profile, refetch: refetchProfile } = useProfile(address)
 
   const avatarColor = GRADIENTS[parseInt(address?.slice(2, 4) ?? '0', 16) % GRADIENTS.length]
 
@@ -68,11 +75,24 @@ export default function ProfilePage() {
     setPublishTarget(null)
   }
 
+  const handleDeleted = (id: string) => {
+    setTracks((prev) => prev.filter((t) => t.id !== id))
+    setPrivateTracks((prev) => prev.filter((t) => t.id !== id))
+    setDeleteTarget(null)
+  }
+
+  const handleProfileSaved = () => {
+    refetchProfile()
+    setTimeout(() => setEditingProfile(false), 1200)
+  }
+
   const copyAddress = () => {
     navigator.clipboard.writeText(address)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  const displayName = profile?.displayName
 
   return (
     <div className="min-h-screen">
@@ -82,19 +102,48 @@ export default function ProfilePage() {
         {/* Header */}
         <section className="mx-auto max-w-4xl px-6 py-16">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <div
-              className={cn(
-                'flex h-20 w-20 items-center justify-center rounded-full text-white text-2xl font-bold flex-shrink-0',
-                `bg-gradient-to-br ${avatarColor}`
+            {/* Avatar */}
+            <div className="relative flex-shrink-0">
+              {profile?.avatarDataUrl ? (
+                <img
+                  src={profile.avatarDataUrl}
+                  alt={displayName ?? address}
+                  className="h-20 w-20 rounded-full object-cover"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    'flex h-20 w-20 items-center justify-center rounded-full text-white text-2xl font-bold',
+                    `bg-gradient-to-br ${avatarColor}`
+                  )}
+                >
+                  {address?.slice(2, 4).toUpperCase()}
+                </div>
               )}
-            >
-              {address?.slice(2, 4).toUpperCase()}
+              {isOwn && (
+                <button
+                  onClick={() => setEditingProfile(true)}
+                  className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-foreground text-background flex items-center justify-center hover:bg-foreground/80 transition-colors shadow"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
             <div className="flex-1">
-              <h1 className="text-3xl font-bold tracking-tight mb-1">
-                {isOwn ? 'Your Profile' : `${address?.slice(0, 6)}...${address?.slice(-4)}`}
-              </h1>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {displayName ?? (isOwn ? 'Your Profile' : `${address?.slice(0, 6)}...${address?.slice(-4)}`)}
+                </h1>
+                {isOwn && !displayName && (
+                  <button
+                    onClick={() => setEditingProfile(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                  >
+                    Set display name
+                  </button>
+                )}
+              </div>
               <button
                 onClick={copyAddress}
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
@@ -125,12 +174,21 @@ export default function ProfilePage() {
             </div>
 
             {isOwn && (
-              <Link
-                href="/upload"
-                className="text-sm font-medium underline text-muted-foreground hover:text-foreground transition-colors shrink-0"
-              >
-                Upload a track →
-              </Link>
+              <div className="flex items-center gap-4 shrink-0">
+                <button
+                  onClick={() => setEditingProfile(true)}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit Profile
+                </button>
+                <Link
+                  href="/upload"
+                  className="text-sm font-medium underline text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Upload a track →
+                </Link>
+              </div>
             )}
           </div>
         </section>
@@ -155,7 +213,12 @@ export default function ProfilePage() {
               </TabsList>
 
               <TabsContent value="public">
-                <PublicSection tracks={tracks} loaded={loaded} isOwn={isOwn} />
+                <PublicSection
+                  tracks={tracks}
+                  loaded={loaded}
+                  isOwn={isOwn}
+                  onDelete={(t) => setDeleteTarget({ id: t.id, title: t.title, artist: t.artist, isPublic: true })}
+                />
               </TabsContent>
 
               <TabsContent value="private">
@@ -167,6 +230,7 @@ export default function ProfilePage() {
                   pause={pause}
                   resume={resume}
                   onPublish={setPublishTarget}
+                  onDelete={(t) => setDeleteTarget({ id: t.id, title: t.title, artist: t.artist, isPublic: false })}
                 />
               </TabsContent>
             </Tabs>
@@ -175,7 +239,7 @@ export default function ProfilePage() {
               <div className="border-b border-border pb-4 mb-8">
                 <h2 className="text-sm font-medium uppercase tracking-widest">Tracks</h2>
               </div>
-              <PublicSection tracks={tracks} loaded={loaded} isOwn={false} />
+              <PublicSection tracks={tracks} loaded={loaded} isOwn={false} onDelete={undefined} />
             </>
           )}
         </section>
@@ -189,12 +253,39 @@ export default function ProfilePage() {
         />
       )}
 
+      {deleteTarget && (
+        <DeleteTrackModal
+          track={deleteTarget}
+          userAddress={myAddress ?? ''}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={handleDeleted}
+        />
+      )}
+
+      {editingProfile && (
+        <EditProfileModal
+          current={profile}
+          onClose={() => setEditingProfile(false)}
+          onSaved={() => handleProfileSaved()}
+        />
+      )}
+
       <Player />
     </div>
   )
 }
 
-function PublicSection({ tracks, loaded, isOwn }: { tracks: Track[]; loaded: boolean; isOwn: boolean }) {
+function PublicSection({
+  tracks,
+  loaded,
+  isOwn,
+  onDelete,
+}: {
+  tracks: Track[]
+  loaded: boolean
+  isOwn: boolean
+  onDelete?: (track: Track) => void
+}) {
   if (!loaded) {
     return (
       <div className="divide-y divide-border">
@@ -217,7 +308,11 @@ function PublicSection({ tracks, loaded, isOwn }: { tracks: Track[]; loaded: boo
   return (
     <div className="divide-y divide-border">
       {tracks.map((track) => (
-        <TrackCard key={track.id} track={track} />
+        <TrackCard
+          key={track.id}
+          track={track}
+          onDelete={isOwn && onDelete ? () => onDelete(track) : undefined}
+        />
       ))}
     </div>
   )
@@ -231,6 +326,7 @@ function PrivateSection({
   pause,
   resume,
   onPublish,
+  onDelete,
 }: {
   privateTracks: PrivateTrack[]
   currentTrack: Track | null
@@ -239,6 +335,7 @@ function PrivateSection({
   pause: () => void
   resume: () => void
   onPublish: (track: PrivateTrack) => void
+  onDelete: (track: PrivateTrack) => void
 }) {
   if (privateTracks.length === 0) {
     return (
@@ -261,14 +358,13 @@ function PrivateSection({
         const isThisPlaying = isThisTrack && playing
 
         return (
-          <div key={track.id} className="relative group flex items-center gap-4 py-3">
+          <div key={track.id} className="group flex items-center gap-4 py-3">
             {/* Cover + play */}
-            <div className="relative flex-shrink-0">
-              <div
-                className={cn(
-                  'h-12 w-12 rounded transition-opacity group-hover:opacity-75',
-                  `bg-gradient-to-br ${track.coverColor}`
-                )}
+            <div className="relative h-12 w-12 flex-shrink-0">
+              <TrackArt
+                trackId={track.id}
+                isPlaying={isThisPlaying}
+                className="h-12 w-12 transition-opacity group-hover:opacity-75"
               />
               <button
                 onClick={() => {
@@ -291,7 +387,7 @@ function PrivateSection({
 
             {/* Info */}
             <div className="min-w-0 flex-1">
-              <p className={cn('truncate text-sm font-medium', isThisTrack && 'text-primary')}>
+              <p className="truncate text-sm font-medium text-primary">
                 {track.title}
               </p>
               <p className="truncate text-xs text-muted-foreground">
@@ -301,14 +397,22 @@ function PrivateSection({
               </p>
             </div>
 
-            {/* Make Public */}
-            <button
-              className="shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
-              onClick={() => onPublish(track)}
-            >
-              <Globe className="h-3 w-3" />
-              Make Public
-            </button>
+            {/* Actions */}
+            <div className="shrink-0 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => onPublish(track)}
+              >
+                <Globe className="h-3 w-3" />
+                Make Public
+              </button>
+              <button
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                onClick={() => onDelete(track)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         )
       })}

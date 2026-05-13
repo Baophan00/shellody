@@ -5,7 +5,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-rea
 import { usePlayer } from '@/context/PlayerContext'
 import { Slider } from '@/components/ui/slider'
 import { WaveformVisualizer } from '@/components/WaveformVisualizer'
-import { cn } from '@/lib/utils'
+import { TrackArt } from '@/components/TrackArt'
 
 function formatTime(seconds: number) {
   if (!seconds || isNaN(seconds)) return '0:00'
@@ -37,16 +37,7 @@ export function Player() {
       <div className="mx-auto flex h-20 max-w-7xl items-center gap-6 px-6">
         {/* Track info */}
         <div className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="relative h-12 w-12 flex-shrink-0">
-            <div
-              className={cn(
-                'h-12 w-12 rounded',
-                currentTrack.coverColor
-                  ? `bg-gradient-to-br ${currentTrack.coverColor}`
-                  : 'bg-gradient-to-br from-primary/60 to-primary/20'
-              )}
-            />
-          </div>
+          <TrackArt trackId={currentTrack.id} isPlaying={playing} className="h-12 w-12" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{currentTrack.title}</p>
             <p className="truncate text-xs text-muted-foreground">{currentTrack.artist}</p>

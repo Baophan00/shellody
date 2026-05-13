@@ -6,6 +6,8 @@ import { getTracks } from '@/lib/storage'
 import { usePlayer } from '@/context/PlayerContext'
 import { Navigation } from '@/components/Navigation'
 import { Player } from '@/components/Player'
+import { TrackArt } from '@/components/TrackArt'
+import { useProfile } from '@/hooks/useProfile'
 import { cn, formatDuration, shortAddress } from '@/lib/utils'
 import { Play, Pause, Trophy } from 'lucide-react'
 
@@ -125,71 +127,17 @@ export default function ChartsPage() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {chart.map((entry, index) => {
-                const rank = index + 1
-                const isCurrentTrackActive = currentTrack?.id === entry.track.id
-                const isTrackPlaying = isCurrentTrackActive && playing
-
-                return (
-                  <div
-                    key={entry.track.id}
-                    className={cn(
-                      'flex items-center gap-6 py-4 group',
-                      isCurrentTrackActive && 'bg-muted/50 -mx-4 px-4'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'w-8 text-2xl font-bold tabular-nums',
-                        rank === 1 ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    >
-                      {rank}
-                    </span>
-
-                    <div className="relative">
-                      <div
-                        className={cn(
-                          'w-12 h-12 rounded',
-                          entry.track.coverColor
-                            ? `bg-gradient-to-br ${entry.track.coverColor}`
-                            : 'bg-gradient-to-br from-primary/60 to-primary/20'
-                        )}
-                      />
-                      <button
-                        className="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handlePlay(entry.track)}
-                      >
-                        {isTrackPlaying ? (
-                          <Pause className="h-4 w-4" />
-                        ) : (
-                          <Play className="h-4 w-4 ml-0.5" />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h3 className={cn('font-medium truncate', isCurrentTrackActive && 'text-primary')}>
-                        {entry.track.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {entry.track.artist || shortAddress(entry.track.address)}
-                      </p>
-                      {entry.reason && !aiError && (
-                        <p className="text-xs text-muted-foreground/60 italic truncate mt-0.5">
-                          &ldquo;{entry.reason}&rdquo;
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="text-right font-mono text-sm shrink-0">
-                      <p className="font-semibold">{entry.track.plays.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">plays</p>
-                      <p className="text-xs text-muted-foreground">{formatDuration(entry.track.duration)}</p>
-                    </div>
-                  </div>
-                )
-              })}
+              {chart.map((entry, index) => (
+                <ChartRow
+                  key={entry.track.id}
+                  entry={entry}
+                  rank={index + 1}
+                  isCurrentTrackActive={currentTrack?.id === entry.track.id}
+                  playing={playing}
+                  onPlay={() => handlePlay(entry.track)}
+                  aiError={aiError}
+                />
+              ))}
             </div>
           )}
 
@@ -200,6 +148,76 @@ export default function ChartsPage() {
       </main>
 
       <Player />
+    </div>
+  )
+}
+
+function ChartRow({
+  entry,
+  rank,
+  isCurrentTrackActive,
+  playing,
+  onPlay,
+  aiError,
+}: {
+  entry: ChartEntry
+  rank: number
+  isCurrentTrackActive: boolean
+  playing: boolean
+  onPlay: () => void
+  aiError: boolean
+}) {
+  const { profile } = useProfile(entry.track.address)
+  const isTrackPlaying = isCurrentTrackActive && playing
+  const artistLabel = profile?.displayName || entry.track.artist || shortAddress(entry.track.address)
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-6 py-4 group',
+        isCurrentTrackActive && 'bg-muted/50 -mx-4 px-4'
+      )}
+    >
+      <span
+        className={cn(
+          'w-8 text-2xl font-bold tabular-nums',
+          rank === 1 ? 'text-primary' : 'text-muted-foreground'
+        )}
+      >
+        {rank}
+      </span>
+
+      <div className="relative">
+        <TrackArt trackId={entry.track.id} isPlaying={isTrackPlaying} className="h-12 w-12" />
+        <button
+          className="absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={onPlay}
+        >
+          {isTrackPlaying ? (
+            <Pause className="h-4 w-4" />
+          ) : (
+            <Play className="h-4 w-4 ml-0.5" />
+          )}
+        </button>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <h3 className={cn('font-medium truncate', isCurrentTrackActive && 'text-primary')}>
+          {entry.track.title}
+        </h3>
+        <p className="text-sm text-muted-foreground truncate">{artistLabel}</p>
+        {entry.reason && !aiError && (
+          <p className="text-xs text-muted-foreground/60 italic truncate mt-0.5">
+            &ldquo;{entry.reason}&rdquo;
+          </p>
+        )}
+      </div>
+
+      <div className="text-right font-mono text-sm shrink-0">
+        <p className="font-semibold">{entry.track.plays.toLocaleString()}</p>
+        <p className="text-xs text-muted-foreground">plays</p>
+        <p className="text-xs text-muted-foreground">{formatDuration(entry.track.duration)}</p>
+      </div>
     </div>
   )
 }

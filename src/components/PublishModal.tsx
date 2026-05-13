@@ -4,6 +4,9 @@ import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { preparePublish, commitPublish, BlobPayloadParams } from '@/lib/shelby';
 import { removePrivateTrack } from '@/lib/storage';
 import { PrivateTrack } from '@/lib/types';
+import { TrackArt } from '@/components/TrackArt';
+import { Button } from '@/components/ui/button';
+import { X, Loader2, CheckCircle2 } from 'lucide-react';
 
 type Status = 'idle' | 'preparing' | 'signing' | 'uploading' | 'done';
 
@@ -81,7 +84,7 @@ export default function PublishModal({ track, onClose, onPublished }: Props) {
       });
 
       setStatus('uploading');
-      await commitPublish(prep.sessionId, metaTx.hash, address);
+      await commitPublish(metaTx.hash, address, prep.metaBlobName, prep.metadataContent);
 
       setStatus('done');
       removePrivateTrack(track.id);
@@ -93,82 +96,87 @@ export default function PublishModal({ track, onClose, onPublished }: Props) {
     }
   };
 
+  const statusLabel = () => {
+    if (status === 'preparing') return 'Computing metadata commitments…'
+    if (status === 'signing') return 'Approve in Petra…'
+    if (status === 'uploading') return 'Publishing to Shelby Protocol…'
+    return ''
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={!busy ? onClose : undefined}
       />
-      <div className="relative bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div className="relative bg-background border border-border rounded-xl p-6 w-full max-w-sm shadow-xl">
         {status === 'done' ? (
           <div className="text-center py-4">
-            <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h3 className="text-white font-bold text-lg mb-1">Published!</h3>
-            <p className="text-zinc-400 text-sm mb-5">Your track is now live on the public feed.</p>
-            <button
-              onClick={onClose}
-              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-6 py-2.5 rounded-full transition-colors"
-            >
+            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Published!</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Your track is now live on the public feed.
+            </p>
+            <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={onClose}>
               Close
-            </button>
+            </Button>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-bold text-lg">Make Public</h3>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold">Make Public</h2>
               {!busy && (
-                <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-5 w-5" />
                 </button>
               )}
             </div>
 
             {/* Track preview */}
-            <div className="flex items-center gap-3 bg-zinc-800 rounded-xl px-4 py-3 mb-5">
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${track.coverColor} shrink-0`} />
-              <div className="min-w-0">
-                <p className="text-white font-medium text-sm truncate">{track.title}</p>
-                <p className="text-zinc-500 text-xs truncate">{track.artist}</p>
-                {track.genre && (
-                  <p className="text-zinc-600 text-xs">{track.genre}</p>
-                )}
+            <div className="flex items-center gap-3 bg-muted/50 border border-border rounded-lg px-4 py-3 mb-6">
+              <TrackArt trackId={track.id} isPlaying={false} className="h-10 w-10 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{track.title}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {track.artist}
+                  {track.genre && <span className="text-muted-foreground/60"> · {track.genre}</span>}
+                </p>
               </div>
             </div>
 
-            <p className="text-zinc-500 text-sm mb-5">
-              One Petra approval required to publish this track to the public feed.
+            <p className="text-sm text-muted-foreground mb-6">
+              One wallet approval required to publish this track to the public feed.
             </p>
 
+            {/* Error */}
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-4 text-sm">
-                {error}
-              </div>
+              <p className="text-sm text-destructive mb-4">{error}</p>
             )}
 
+            {/* Status */}
             {busy && (
-              <div className="flex items-center gap-3 bg-zinc-800 rounded-xl px-4 py-3 mb-4">
-                <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                <span className="text-zinc-300 text-sm">
-                  {status === 'preparing' && 'Computing metadata commitments…'}
-                  {status === 'signing' && 'Approve in Petra…'}
-                  {status === 'uploading' && 'Publishing to Shelby Protocol…'}
-                </span>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{statusLabel()}</span>
               </div>
             )}
 
-            <button
-              onClick={handlePublish}
-              disabled={busy}
-              className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-full transition-colors"
-            >
-              Publish Track
-            </button>
+            {/* Actions */}
+            <div className="flex gap-3">
+              {!busy && (
+                <Button variant="outline" className="flex-1" onClick={onClose}>
+                  Cancel
+                </Button>
+              )}
+              <Button
+                className="flex-1 bg-foreground text-background hover:bg-foreground/90"
+                disabled={busy}
+                onClick={handlePublish}
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Publish Track'}
+              </Button>
+            </div>
           </>
         )}
       </div>

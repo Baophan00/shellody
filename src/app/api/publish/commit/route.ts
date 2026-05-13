@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getShelbyClient } from '@/lib/shelby-server';
-import { consumeSession } from '@/lib/session-store';
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId, metadataTxHash, userAddress } = await req.json();
+    const { metadataTxHash, userAddress, metaBlobName, metadataContent } = await req.json();
 
-    if (!sessionId || !metadataTxHash || !userAddress) {
+    if (!metadataTxHash || !userAddress || !metaBlobName || !metadataContent) {
       return NextResponse.json(
-        { error: 'Missing sessionId, metadataTxHash, or userAddress' },
+        { error: 'Missing metadataTxHash, userAddress, metaBlobName, or metadataContent' },
         { status: 400 }
       );
     }
 
-    const session = consumeSession(sessionId);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Publish session expired or not found. Please retry.' },
-        { status: 404 }
-      );
-    }
-
+    const blobData = new TextEncoder().encode(metadataContent);
     const client = getShelbyClient();
     await client.aptos.waitForTransaction({ transactionHash: metadataTxHash });
-    await Promise.all(
-      session.blobs.map(({ blobData, blobName }) =>
-        client.rpc.putBlob({ account: userAddress, blobName, blobData })
-      )
-    );
+    await client.rpc.putBlob({ account: userAddress, blobName: metaBlobName, blobData });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

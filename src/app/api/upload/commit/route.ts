@@ -1,33 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getShelbyClient } from '@/lib/shelby-server';
-import { consumeSession } from '@/lib/session-store';
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId, audioTxHash, userAddress } = await req.json();
+    const form = await req.formData();
+    const file = form.get('file');
+    const audioTxHash = form.get('audioTxHash');
+    const userAddress = form.get('userAddress');
+    const blobName = form.get('blobName');
 
-    if (!sessionId || !audioTxHash || !userAddress) {
-      return NextResponse.json(
-        { error: 'Missing sessionId, audioTxHash, or userAddress' },
-        { status: 400 }
-      );
+    if (
+      !(file instanceof File) ||
+      typeof audioTxHash !== 'string' || !audioTxHash ||
+      typeof userAddress !== 'string' || !userAddress ||
+      typeof blobName !== 'string' || !blobName
+    ) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const session = consumeSession(sessionId);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Upload session expired or not found. Please retry.' },
-        { status: 404 }
-      );
-    }
+    const arrayBuffer = await file.arrayBuffer();
+    const blobData = new Uint8Array(arrayBuffer);
 
     const client = getShelbyClient();
     await client.aptos.waitForTransaction({ transactionHash: audioTxHash });
-    await Promise.all(
-      session.blobs.map(({ blobData, blobName }) =>
-        client.rpc.putBlob({ account: userAddress, blobName, blobData })
-      )
-    );
+    await client.rpc.putBlob({ account: userAddress, blobName, blobData });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

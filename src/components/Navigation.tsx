@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Home, Upload, User, BarChart3, Wallet, LogOut, Shell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWallet } from '@aptos-labs/wallet-adapter-react'
+import { useProfile } from '@/hooks/useProfile'
 import { Button } from '@/components/ui/button'
 
 const navItems = [
@@ -17,6 +18,7 @@ export function Navigation() {
   const pathname = usePathname()
   const { connected, account, connect, disconnect } = useWallet()
   const address = account?.address.toString()
+  const { profile } = useProfile(connected ? address : null)
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
@@ -68,8 +70,11 @@ export function Navigation() {
             <div className="flex items-center gap-3">
               <div className="hidden items-center gap-2 sm:flex">
                 <div className="h-2 w-2 rounded-full bg-primary" />
-                <span className="font-mono text-sm text-muted-foreground">
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
+                {profile?.avatarDataUrl ? (
+                  <img src={profile.avatarDataUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+                ) : null}
+                <span className={profile?.displayName ? 'text-sm font-medium' : 'font-mono text-sm text-muted-foreground'}>
+                  {profile?.displayName ?? `${address?.slice(0, 6)}...${address?.slice(-4)}`}
                 </span>
               </div>
               <button

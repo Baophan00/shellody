@@ -139,7 +139,7 @@ export default function UploadPage() {
       })
 
       setStatus('uploading')
-      await commitUpload(prep.sessionId, audioTx.hash, address)
+      await commitUpload(file, audioTx.hash, address, prep.audioBlobName)
 
       setStatus('saving')
       addPrivateTrack({

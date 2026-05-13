@@ -6,7 +6,6 @@ export interface BlobPayloadParams {
 }
 
 export interface PrepareResult {
-  sessionId: string;
   cid: string;
   audioUrl: string;
   audioBlobName: string;
@@ -17,11 +16,20 @@ export interface PrepareResult {
 }
 
 export interface PublishPrepareResult {
-  sessionId: string;
+  metaBlobName: string;
+  metadataContent: string;
   expirationMicros: number;
   encoding: number;
   deployerAddress: string;
   metadata: BlobPayloadParams;
+}
+
+export interface ProfilePrepareResult {
+  profileContent: string;
+  expirationMicros: number;
+  encoding: number;
+  deployerAddress: string;
+  profile: BlobPayloadParams;
 }
 
 async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
@@ -46,15 +54,17 @@ export async function prepareUpload(
 }
 
 export async function commitUpload(
-  sessionId: string,
+  file: File,
   audioTxHash: string,
-  userAddress: string
+  userAddress: string,
+  blobName: string
 ): Promise<void> {
-  await apiFetch<{ ok: boolean }>('/api/upload/commit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, audioTxHash, userAddress }),
-  });
+  const form = new FormData();
+  form.append('file', file);
+  form.append('audioTxHash', audioTxHash);
+  form.append('userAddress', userAddress);
+  form.append('blobName', blobName);
+  await apiFetch<{ ok: boolean }>('/api/upload/commit', { method: 'POST', body: form });
 }
 
 export async function preparePublish(
@@ -77,13 +87,39 @@ export async function preparePublish(
 }
 
 export async function commitPublish(
-  sessionId: string,
   metadataTxHash: string,
-  userAddress: string
+  userAddress: string,
+  metaBlobName: string,
+  metadataContent: string
 ): Promise<void> {
   await apiFetch<{ ok: boolean }>('/api/publish/commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, metadataTxHash, userAddress }),
+    body: JSON.stringify({ metadataTxHash, userAddress, metaBlobName, metadataContent }),
+  });
+}
+
+export async function prepareProfile(
+  address: string,
+  displayName: string,
+  avatarDataUrl?: string
+): Promise<ProfilePrepareResult> {
+  return apiFetch<ProfilePrepareResult>('/api/profile/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, displayName, avatarDataUrl }),
+  });
+}
+
+export async function commitProfile(
+  txHash: string,
+  address: string,
+  blobName: string,
+  profileContent: string
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>('/api/profile/commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ txHash, address, blobName, profileContent }),
   });
 }

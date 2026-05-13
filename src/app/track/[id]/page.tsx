@@ -8,7 +8,8 @@ import { getTrackById } from '@/lib/storage'
 import { usePlayer } from '@/context/PlayerContext'
 import { Navigation } from '@/components/Navigation'
 import { Player } from '@/components/Player'
-import { cn, formatDuration, shortAddress } from '@/lib/utils'
+import { TrackArt } from '@/components/TrackArt'
+import { formatDuration, shortAddress } from '@/lib/utils'
 import { Play, Pause, Copy, Check } from 'lucide-react'
 
 export default function TrackPage() {
@@ -63,20 +64,14 @@ export default function TrackPage() {
         ) : (
           <>
             {/* Cover art */}
-            <div
-              className={cn(
-                'relative w-full aspect-square rounded-lg mb-8 flex items-center justify-center',
-                track.coverColor
-                  ? `bg-gradient-to-br ${track.coverColor}`
-                  : 'bg-gradient-to-br from-primary/60 to-primary/20'
-              )}
-            >
+            <div className="relative w-full aspect-square mb-8">
+              <TrackArt trackId={track.id} isPlaying={isPlaying} className="w-full h-full rounded-lg" />
               {isPlaying && (
-                <div className="absolute inset-0 rounded-lg ring-2 ring-foreground/10 animate-pulse" />
+                <div className="absolute inset-0 rounded-lg ring-2 ring-foreground/10 animate-pulse pointer-events-none" />
               )}
               <button
                 onClick={handlePlayPause}
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-background/20 hover:bg-background/40 backdrop-blur-sm transition-colors"
+                className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors"
               >
                 {isPlaying ? (
                   <Pause className="h-7 w-7 text-white" />

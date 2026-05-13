@@ -1,8 +1,10 @@
 'use client'
 
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, Trash2 } from 'lucide-react'
 import { Track } from '@/lib/types'
 import { usePlayer } from '@/context/PlayerContext'
+import { TrackArt } from '@/components/TrackArt'
+import { useProfile } from '@/hooks/useProfile'
 import { cn, formatDuration, shortAddress } from '@/lib/utils'
 
 function formatPlays(plays: number) {
@@ -15,12 +17,15 @@ interface TrackCardProps {
   track: Track
   showArtist?: boolean
   rank?: number
+  onDelete?: () => void
 }
 
-export function TrackCard({ track, showArtist = true, rank }: TrackCardProps) {
+export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCardProps) {
   const { currentTrack, playing, play, pause, resume } = usePlayer()
+  const { profile } = useProfile(track.address)
   const isCurrentTrack = currentTrack?.id === track.id
   const isCurrentlyPlaying = isCurrentTrack && playing
+  const artistLabel = profile?.displayName || track.artist || shortAddress(track.address)
 
   const handlePlay = () => {
     if (isCurrentTrack) {
@@ -56,13 +61,10 @@ export function TrackCard({ track, showArtist = true, rank }: TrackCardProps) {
       )}
 
       <div className="relative flex-shrink-0">
-        <div
-          className={cn(
-            'h-12 w-12 rounded transition-opacity group-hover:opacity-75',
-            track.coverColor
-              ? `bg-gradient-to-br ${track.coverColor}`
-              : 'bg-gradient-to-br from-primary/60 to-primary/20'
-          )}
+        <TrackArt
+          trackId={track.id}
+          isPlaying={isCurrentlyPlaying}
+          className="h-12 w-12 transition-opacity group-hover:opacity-75"
         />
         <button
           onClick={handlePlay}
@@ -86,14 +88,23 @@ export function TrackCard({ track, showArtist = true, rank }: TrackCardProps) {
         </p>
         {showArtist && (
           <p className="truncate text-xs text-muted-foreground">
-            {track.artist || shortAddress(track.address)}
+            {artistLabel}
           </p>
         )}
       </div>
 
-      <div className="flex items-center gap-6 text-xs text-muted-foreground font-mono">
+      <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
         <span className="hidden sm:inline">{formatPlays(track.plays)} plays</span>
         <span>{formatDuration(track.duration)}</span>
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+            aria-label="Delete track"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   )
