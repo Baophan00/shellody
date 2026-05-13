@@ -1,17 +1,18 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { Providers } from '@/components/Providers';
-import Navbar from '@/components/Navbar';
-import AudioPlayer from '@/components/AudioPlayer';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Shellody — Decentralized Music',
   description:
     'Upload, share, and discover music stored on Shelby Protocol and the Aptos blockchain.',
-};
+}
+
+export const viewport: Viewport = {
+  themeColor: '#1a3d35',
+}
 
 export default function RootLayout({
   children,
@@ -19,12 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-zinc-950 text-white antialiased`}>
+    <html lang="en" className="dark bg-background">
+      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
         <Providers>
-          <Navbar />
-          <main className="pt-16 pb-24 min-h-screen">{children}</main>
-          <AudioPlayer />
+          {children}
         </Providers>
       </body>
     </html>

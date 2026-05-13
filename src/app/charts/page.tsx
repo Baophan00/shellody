@@ -1,219 +1,252 @@
-'use client';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Track } from '@/lib/types';
-import { getTracks } from '@/lib/storage';
-import { usePlayer } from '@/context/PlayerContext';
-import { formatDuration, shortAddress } from '@/lib/utils';
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Track } from '@/lib/types'
+import { getTracks } from '@/lib/storage'
+import { usePlayer } from '@/context/PlayerContext'
+import { Navigation } from '@/components/Navigation'
+import { Player } from '@/components/Player'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { cn, formatDuration, shortAddress } from '@/lib/utils'
+import { Trophy, Play, Pause, TrendingUp, Sparkles, Crown, Medal } from 'lucide-react'
 
 interface ChartEntry {
-  rank: number;
-  track: Track;
-  reason: string;
+  rank: number
+  track: Track
+  reason: string
 }
 
-function SparkleIcon() {
-  return (
-    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
-    </svg>
-  );
+function getRankIcon(index: number) {
+  if (index === 0) return <Crown className="h-6 w-6 text-amber-400" />
+  if (index === 1) return <Medal className="h-5 w-5 text-zinc-300" />
+  if (index === 2) return <Medal className="h-5 w-5 text-amber-600" />
+  return <span className="text-lg font-bold text-muted-foreground w-6 text-center">{index + 1}</span>
 }
 
-function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1)
-    return (
-      <span className="text-lg font-black text-yellow-400 w-7 text-center shrink-0">
-        1
-      </span>
-    );
-  if (rank === 2)
-    return (
-      <span className="text-lg font-black text-zinc-300 w-7 text-center shrink-0">
-        2
-      </span>
-    );
-  if (rank === 3)
-    return (
-      <span className="text-lg font-black text-orange-400 w-7 text-center shrink-0">
-        3
-      </span>
-    );
-  return (
-    <span className="text-base font-bold text-zinc-600 w-7 text-center shrink-0">
-      {rank}
-    </span>
-  );
+function getRankGradient(index: number) {
+  if (index === 0) return 'bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent border-amber-500/30'
+  if (index === 1) return 'bg-gradient-to-r from-zinc-400/15 via-zinc-400/5 to-transparent border-zinc-400/20'
+  if (index === 2) return 'bg-gradient-to-r from-amber-700/15 via-amber-700/5 to-transparent border-amber-700/20'
+  return 'bg-card/50 border-border/50'
 }
 
 export default function ChartsPage() {
-  const [chart, setChart] = useState<ChartEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [aiError, setAiError] = useState(false);
-  const { currentTrack, playing, play, pause } = usePlayer();
+  const [chart, setChart] = useState<ChartEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [aiError, setAiError] = useState(false)
+  const { currentTrack, playing, play, pause, resume } = usePlayer()
 
   useEffect(() => {
     async function load() {
-      const tracks = getTracks();
+      const localTracks = getTracks()
+
+      // Try to get tracks from Shelby feed too
+      let allTracks = localTracks
+      try {
+        const feedRes = await fetch('/api/feed')
+        const { tracks: shelbyTracks } = await feedRes.json()
+        const localById = new Map(localTracks.map((t) => [t.id, t]))
+        allTracks = shelbyTracks.map((t: Track) => ({
+          ...t,
+          plays: localById.get(t.id)?.plays ?? t.plays,
+        }))
+      } catch {
+        // use local tracks as fallback
+      }
 
       try {
         const res = await fetch('/api/charts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tracks }),
-        });
-
-        if (!res.ok) throw new Error(await res.text());
-
-        const data = await res.json();
+          body: JSON.stringify({ tracks: allTracks }),
+        })
+        if (!res.ok) throw new Error(await res.text())
+        const data = await res.json()
         if (data.chart?.length) {
-          setChart(data.chart);
-          return;
+          setChart(data.chart)
+          return
         }
-        throw new Error('Empty chart response');
+        throw new Error('Empty chart response')
       } catch {
-        setAiError(true);
-        // Fallback: rank by plays
-        const fallback = [...tracks]
+        setAiError(true)
+        const fallback = [...allTracks]
           .sort((a, b) => b.plays - a.plays)
           .slice(0, 10)
-          .map((track, i) => ({
-            rank: i + 1,
-            track,
-            reason: 'Ranked by play count',
-          }));
-        setChart(fallback);
+          .map((track, i) => ({ rank: i + 1, track, reason: 'Ranked by play count' }))
+        setChart(fallback)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
+    load()
+  }, [])
 
-    load();
-  }, []);
+  const handlePlay = (track: Track) => {
+    if (currentTrack?.id === track.id) {
+      if (playing) pause()
+      else resume()
+    } else {
+      play(track)
+    }
+  }
+
+  const totalPlays = chart.reduce((acc, e) => acc + e.track.plays, 0)
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-10">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-            Top Charts
-          </h1>
-          <div className="flex items-center gap-2 text-sm">
-            {aiError ? (
-              <span className="text-zinc-500">Ranked by play count</span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-violet-400">
-                <SparkleIcon />
-                AI-curated by Claude
+    <div className="min-h-screen bg-background">
+      <Navigation />
+
+      <main className="container mx-auto px-4 py-8 pb-32">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">
+                {aiError ? 'Ranked by Play Count' : 'AI-Generated Rankings'}
               </span>
-            )}
-          </div>
-        </div>
-
-        {loading && (
-          <div className="flex items-center gap-2 text-zinc-500 text-sm mt-1 shrink-0">
-            <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            Asking Claude…
-          </div>
-        )}
-      </div>
-
-      {aiError && !loading && (
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl px-4 py-3 mb-6 text-sm">
-          AI analysis unavailable (check{' '}
-          <code className="font-mono">ANTHROPIC_API_KEY</code>) — showing play
-          count ranking.
-        </div>
-      )}
-
-      {/* Chart list */}
-      <div className="flex flex-col gap-3">
-        {loading &&
-          chart.length === 0 &&
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-[76px] bg-zinc-900 rounded-xl animate-pulse" />
-          ))}
-
-        {chart.map((entry) => {
-          const isActive = currentTrack?.id === entry.track.id;
-          const isPlaying = isActive && playing;
-
-          return (
-            <div
-              key={entry.track.id}
-              className={`flex items-center gap-4 bg-zinc-900 rounded-xl px-4 py-4 hover:bg-zinc-800/80 transition-colors ${
-                isActive ? 'ring-1 ring-violet-500/70' : ''
-              }`}
-            >
-              <RankBadge rank={entry.rank} />
-
-              {/* Cover + play button */}
-              <button
-                onClick={() => (isPlaying ? pause() : play(entry.track))}
-                className={`relative w-12 h-12 rounded-xl bg-gradient-to-br ${entry.track.coverColor} shrink-0 flex items-center justify-center hover:scale-105 transition-transform`}
-              >
-                {isPlaying ? (
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-                {isActive && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-violet-500 rounded-full border-2 border-zinc-900" />
-                )}
-              </button>
-
-              {/* Track info */}
-              <div className="flex-1 min-w-0">
-                <Link
-                  href={`/track/${entry.track.id}`}
-                  className="text-white font-semibold hover:text-violet-400 transition-colors block truncate leading-tight"
-                >
-                  {entry.track.title}
-                </Link>
-                <Link
-                  href={`/profile/${entry.track.address}`}
-                  className="text-zinc-400 text-sm hover:text-violet-400 transition-colors block truncate leading-tight mt-0.5"
-                >
-                  {entry.track.artist || shortAddress(entry.track.address)}
-                </Link>
-                {entry.reason && !aiError && (
-                  <p className="text-zinc-600 text-xs mt-1 italic truncate">
-                    &ldquo;{entry.reason}&rdquo;
-                  </p>
-                )}
-              </div>
-
-              {/* Stats */}
-              <div className="text-right shrink-0 space-y-0.5">
-                <p className="text-zinc-400 text-sm tabular-nums">
-                  {entry.track.plays.toLocaleString()}{' '}
-                  <span className="text-zinc-600">plays</span>
-                </p>
-                <p className="text-zinc-600 text-xs tabular-nums">
-                  {formatDuration(entry.track.duration)}
-                </p>
-              </div>
             </div>
-          );
-        })}
-      </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 text-balance">
+              Top 10 Charts
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-md mx-auto">
+              {aiError
+                ? 'Showing tracks sorted by most plays'
+                : 'The most played tracks on Shellody, ranked by our AI algorithm'}
+            </p>
+          </div>
 
-      {!loading && chart.length === 0 && (
-        <div className="text-center py-20 text-zinc-500">
-          <p className="text-lg mb-2">No tracks to chart yet.</p>
-          <Link
-            href="/upload"
-            className="text-violet-400 hover:text-violet-300 transition-colors text-sm"
-          >
-            Upload the first one →
-          </Link>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-10">
+            <Card className="bg-card/50 border-border/50">
+              <CardContent className="p-4 text-center">
+                <TrendingUp className="h-5 w-5 text-primary mx-auto mb-2" />
+                <p className="text-2xl font-bold text-foreground">{totalPlays.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total Plays</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-border/50">
+              <CardContent className="p-4 text-center">
+                <Trophy className="h-5 w-5 text-amber-400 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-foreground">{chart.length}</p>
+                <p className="text-xs text-muted-foreground">Charting Tracks</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-border/50">
+              <CardContent className="p-4 text-center">
+                <Sparkles className="h-5 w-5 text-primary mx-auto mb-2" />
+                <p className="text-2xl font-bold text-foreground">
+                  {new Set(chart.map((e) => e.track.artist)).size}
+                </p>
+                <p className="text-xs text-muted-foreground">Artists</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Leaderboard */}
+          {loading && chart.length === 0 ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-xl bg-card/50 animate-pulse" />
+              ))}
+            </div>
+          ) : chart.length === 0 ? (
+            <Card className="bg-card/50 border-border/50">
+              <CardContent className="p-12 text-center">
+                <Trophy className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground mb-2">No Charts Yet</h3>
+                <p className="text-muted-foreground">
+                  Be the first to upload a public track and claim the top spot!
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {chart.map((entry, index) => {
+                const isCurrentTrack = currentTrack?.id === entry.track.id
+                const isTrackPlaying = isCurrentTrack && playing
+
+                return (
+                  <Card
+                    key={entry.track.id}
+                    className={cn(
+                      getRankGradient(index),
+                      'border transition-all duration-300 hover:scale-[1.01]',
+                      isCurrentTrack && 'ring-1 ring-primary/50'
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        {/* Rank */}
+                        <div className="flex items-center justify-center w-10">
+                          {getRankIcon(index)}
+                        </div>
+
+                        {/* Cover Art */}
+                        <div className="relative group/cover">
+                          <div
+                            className={cn(
+                              'w-14 h-14 rounded-lg',
+                              entry.track.coverColor
+                                ? `bg-gradient-to-br ${entry.track.coverColor}`
+                                : 'bg-gradient-to-br from-primary/60 to-accent/60'
+                            )}
+                          />
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="absolute inset-0 m-auto w-8 h-8 rounded-full opacity-0 group-hover/cover:opacity-100 transition-opacity bg-background/90 hover:bg-background"
+                            onClick={() => handlePlay(entry.track)}
+                          >
+                            {isTrackPlaying ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4 ml-0.5" />
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Track Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-foreground truncate">
+                            {entry.track.title}
+                          </h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {entry.track.artist || shortAddress(entry.track.address)}
+                          </p>
+                          {entry.reason && !aiError && (
+                            <p className="text-xs text-muted-foreground/60 italic truncate mt-0.5">
+                              &ldquo;{entry.reason}&rdquo;
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Stats */}
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-foreground">
+                            {entry.track.plays.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">plays</p>
+                          <p className="text-xs text-muted-foreground">{formatDuration(entry.track.duration)}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="mt-8 text-center">
+            <p className="text-xs text-muted-foreground">
+              Rankings updated in real-time based on play counts and engagement
+            </p>
+          </div>
         </div>
-      )}
+      </main>
+
+      <Player />
     </div>
-  );
+  )
 }

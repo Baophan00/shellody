@@ -1,229 +1,178 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import { Track, PrivateTrack } from '@/lib/types';
-import { getTracks, getPrivateTracks, removePrivateTrack } from '@/lib/storage';
-import TrackCard from '@/components/TrackCard';
-import PublishModal from '@/components/PublishModal';
-import { shortAddress } from '@/lib/utils';
-import { useWallet } from '@aptos-labs/wallet-adapter-react';
-import { usePlayer } from '@/context/PlayerContext';
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { Track, PrivateTrack } from '@/lib/types'
+import { getTracks, getPrivateTracks, removePrivateTrack } from '@/lib/storage'
+import { TrackCard } from '@/components/TrackCard'
+import PublishModal from '@/components/PublishModal'
+import { cn, shortAddress, formatDuration } from '@/lib/utils'
+import { useWallet } from '@aptos-labs/wallet-adapter-react'
+import { usePlayer } from '@/context/PlayerContext'
+import { Navigation } from '@/components/Navigation'
+import { Player } from '@/components/Player'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Play, Pause, Upload, Globe, Lock, Music } from 'lucide-react'
+
+const GRADIENTS = [
+  'from-violet-600 to-blue-600',
+  'from-orange-500 to-pink-600',
+  'from-green-500 to-teal-600',
+  'from-purple-600 to-indigo-700',
+  'from-red-500 to-orange-600',
+  'from-cyan-500 to-blue-600',
+]
 
 export default function ProfilePage() {
-  const { address } = useParams<{ address: string }>();
-  const { account } = useWallet();
-  const myAddress = account?.address.toString() ?? null;
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [privateTracks, setPrivateTracks] = useState<PrivateTrack[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [publishTarget, setPublishTarget] = useState<PrivateTrack | null>(null);
+  const { address } = useParams<{ address: string }>()
+  const { account } = useWallet()
+  const myAddress = account?.address.toString() ?? null
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [privateTracks, setPrivateTracks] = useState<PrivateTrack[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [publishTarget, setPublishTarget] = useState<PrivateTrack | null>(null)
 
-  const isOwn = myAddress?.toLowerCase() === address?.toLowerCase();
-  const { play, pause, playing, currentTrack } = usePlayer();
+  const isOwn = myAddress?.toLowerCase() === address?.toLowerCase()
+  const { play, pause, resume, playing, currentTrack } = usePlayer()
+
+  const avatarColor = GRADIENTS[parseInt(address?.slice(2, 4) ?? '0', 16) % GRADIENTS.length]
 
   useEffect(() => {
-    const localById = new Map(getTracks().map((t) => [t.id, t]));
+    const localById = new Map(getTracks().map((t) => [t.id, t]))
     fetch(`/api/feed?address=${encodeURIComponent(address)}`)
       .then((r) => r.json())
       .then(({ tracks: shelbyTracks }: { tracks: Track[] }) => {
         const merged = shelbyTracks.map((t) => ({
           ...t,
           plays: localById.get(t.id)?.plays ?? t.plays,
-        }));
-        setTracks(merged);
+        }))
+        setTracks(merged)
       })
       .catch(() => setTracks([]))
-      .finally(() => setLoaded(true));
-  }, [address]);
+      .finally(() => setLoaded(true))
+  }, [address])
 
   useEffect(() => {
     if (isOwn) {
       setPrivateTracks(
-        getPrivateTracks().filter(
-          (t) => t.address.toLowerCase() === address.toLowerCase()
-        )
-      );
+        getPrivateTracks().filter((t) => t.address.toLowerCase() === address.toLowerCase())
+      )
     }
-  }, [isOwn, address]);
+  }, [isOwn, address])
 
   const handlePublished = (id: string) => {
-    removePrivateTrack(id);
-    setPrivateTracks((prev) => prev.filter((t) => t.id !== id));
-    setPublishTarget(null);
-  };
+    removePrivateTrack(id)
+    setPrivateTracks((prev) => prev.filter((t) => t.id !== id))
+    setPublishTarget(null)
+  }
 
-  const totalPlays = tracks.reduce((sum, t) => sum + t.plays, 0);
-
-  const gradients = [
-    'from-violet-600 to-blue-600',
-    'from-orange-500 to-pink-600',
-    'from-green-500 to-teal-600',
-    'from-purple-600 to-indigo-700',
-    'from-red-500 to-orange-600',
-    'from-cyan-500 to-blue-600',
-  ];
-  const avatarColor =
-    gradients[parseInt(address?.slice(2, 4) ?? '0', 16) % gradients.length];
+  const totalPlays = tracks.reduce((sum, t) => sum + t.plays, 0)
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
-      {/* Profile header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-10">
-        <div
-          className={`w-24 h-24 rounded-3xl bg-gradient-to-br ${avatarColor} flex items-center justify-center shrink-0 shadow-2xl shadow-violet-900/30`}
-        >
-          <span className="text-white text-3xl font-bold">
-            {address?.slice(2, 4).toUpperCase()}
-          </span>
-        </div>
+    <div className="min-h-screen bg-background">
+      <Navigation />
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-white">
-              {isOwn ? 'Your Profile' : 'Artist Profile'}
-            </h1>
-            {isOwn && (
-              <span className="text-xs bg-violet-500/20 text-violet-400 border border-violet-500/30 px-2 py-0.5 rounded-full">
-                You
-              </span>
+      <main className="mx-auto max-w-4xl px-4 py-10 pb-32">
+        {/* Profile Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-10">
+          <div
+            className={cn(
+              'w-24 h-24 rounded-3xl flex items-center justify-center flex-shrink-0 shadow-xl',
+              `bg-gradient-to-br ${avatarColor}`
             )}
-          </div>
-          <p className="text-zinc-400 font-mono text-sm mt-1 break-all">{address}</p>
-
-          <div className="flex items-center gap-6 mt-3">
-            <div>
-              <span className="text-white font-semibold text-lg">{tracks.length}</span>
-              <span className="text-zinc-500 text-sm ml-1.5">public tracks</span>
-            </div>
-            {isOwn && privateTracks.length > 0 && (
-              <div>
-                <span className="text-white font-semibold text-lg">{privateTracks.length}</span>
-                <span className="text-zinc-500 text-sm ml-1.5">private</span>
-              </div>
-            )}
-            <div>
-              <span className="text-white font-semibold text-lg">{totalPlays.toLocaleString()}</span>
-              <span className="text-zinc-500 text-sm ml-1.5">total plays</span>
-            </div>
-          </div>
-        </div>
-
-        {isOwn && (
-          <Link
-            href="/upload"
-            className="shrink-0 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2.5 rounded-full transition-colors shadow-lg shadow-violet-900/30"
           >
-            + Upload Track
-          </Link>
-        )}
-      </div>
-
-      {/* Private tracks (owner only) */}
-      {isOwn && privateTracks.length > 0 && (
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-3">
-            <h2 className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
-              Private Tracks
-            </h2>
-            <span className="text-xs bg-zinc-800 text-zinc-500 border border-zinc-700 px-2 py-0.5 rounded-full">
-              Only visible to you
+            <span className="text-white text-3xl font-bold">
+              {address?.slice(2, 4).toUpperCase()}
             </span>
           </div>
-          <div className="flex flex-col gap-2">
-            {privateTracks.map((track) => {
-              const isThisPlaying = playing && currentTrack?.id === track.id;
-              const asTrack = {
-                id: track.id,
-                title: track.title,
-                artist: track.artist,
-                address: track.address,
-                cid: track.cid,
-                audioUrl: track.audioUrl,
-                coverColor: track.coverColor,
-                duration: track.duration,
-                plays: 0,
-                uploadedAt: track.uploadedAt,
-                genre: track.genre,
-              };
-              return (
-                <div
-                  key={track.id}
-                  className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3"
-                >
-                  {/* Play/pause button */}
-                  <button
-                    onClick={() => isThisPlaying ? pause() : play(asTrack)}
-                    className={`w-9 h-9 rounded-lg bg-gradient-to-br ${track.coverColor} shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity`}
-                  >
-                    {isThisPlaying ? (
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{track.title}</p>
-                    <p className="text-zinc-500 text-xs mt-0.5 truncate">
-                      {track.artist}
-                      {track.genre && <span className="text-zinc-600"> · {track.genre}</span>}
-                      <span className="text-zinc-700"> · {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}</span>
-                    </p>
-                  </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-foreground">
+                {isOwn ? 'Your Profile' : 'Artist Profile'}
+              </h1>
+              {isOwn && (
+                <span className="text-xs bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 rounded-full">
+                  You
+                </span>
+              )}
+            </div>
+            <p className="text-muted-foreground font-mono text-sm mt-1 break-all">{address}</p>
 
-                  <button
-                    onClick={() => setPublishTarget(track)}
-                    className="shrink-0 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
-                  >
-                    Make Public
-                  </button>
+            <div className="flex items-center gap-6 mt-3">
+              <div>
+                <span className="text-foreground font-semibold text-lg">{tracks.length}</span>
+                <span className="text-muted-foreground text-sm ml-1.5">public</span>
+              </div>
+              {isOwn && privateTracks.length > 0 && (
+                <div>
+                  <span className="text-foreground font-semibold text-lg">{privateTracks.length}</span>
+                  <span className="text-muted-foreground text-sm ml-1.5">private</span>
                 </div>
-              );
-            })}
+              )}
+              <div>
+                <span className="text-foreground font-semibold text-lg">{totalPlays.toLocaleString()}</span>
+                <span className="text-muted-foreground text-sm ml-1.5">plays</span>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Public tracks */}
-      {!loaded ? (
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-[68px] bg-zinc-900 rounded-xl animate-pulse" />
-          ))}
-        </div>
-      ) : tracks.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
-          <p className="text-zinc-500 text-lg mb-2">No public tracks yet.</p>
           {isOwn && (
-            <p className="text-zinc-600 text-sm">
-              Upload a track and hit <span className="text-violet-400">Make Public</span> to share it.
-            </p>
+            <Link href="/upload">
+              <Button className="gap-2 shrink-0">
+                <Upload className="h-4 w-4" />
+                Upload Track
+              </Button>
+            </Link>
           )}
         </div>
-      ) : (
-        <>
-          <h2 className="text-zinc-400 text-sm font-medium uppercase tracking-wider mb-3">
-            Public Tracks
-          </h2>
-          <div className="flex flex-col gap-2">
-            {tracks.map((track) => (
-              <TrackCard key={track.id} track={track} />
-            ))}
-          </div>
-        </>
-      )}
 
-      {/* Wallet info */}
-      <div className="mt-10 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-        <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Wallet</p>
-        <p className="text-zinc-300 font-mono text-sm break-all">{address}</p>
-        <p className="text-zinc-600 text-xs mt-2">Short: {shortAddress(address)}</p>
-      </div>
+        {/* Tabs */}
+        {isOwn ? (
+          <Tabs defaultValue="public">
+            <TabsList className="mb-6">
+              <TabsTrigger value="public" className="gap-2">
+                <Globe className="h-4 w-4" />
+                Public ({tracks.length})
+              </TabsTrigger>
+              <TabsTrigger value="private" className="gap-2">
+                <Lock className="h-4 w-4" />
+                Private ({privateTracks.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="public">
+              <PublicTracksSection tracks={tracks} loaded={loaded} isOwn={isOwn} />
+            </TabsContent>
+
+            <TabsContent value="private">
+              <PrivateTracksSection
+                privateTracks={privateTracks}
+                currentTrack={currentTrack}
+                playing={playing}
+                play={play}
+                pause={pause}
+                resume={resume}
+                onPublish={setPublishTarget}
+              />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <PublicTracksSection tracks={tracks} loaded={loaded} isOwn={isOwn} />
+        )}
+
+        {/* Wallet card */}
+        <Card className="mt-10 bg-card/50 border-border/50">
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Wallet Address</p>
+            <p className="text-foreground font-mono text-sm break-all">{address}</p>
+            <p className="text-muted-foreground text-xs mt-1">{shortAddress(address)}</p>
+          </CardContent>
+        </Card>
+      </main>
 
       {publishTarget && (
         <PublishModal
@@ -232,6 +181,161 @@ export default function ProfilePage() {
           onPublished={handlePublished}
         />
       )}
+
+      <Player />
     </div>
-  );
+  )
+}
+
+function PublicTracksSection({
+  tracks,
+  loaded,
+  isOwn,
+}: {
+  tracks: Track[]
+  loaded: boolean
+  isOwn: boolean
+}) {
+  if (!loaded) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-[72px] rounded-xl bg-card/50 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+  if (tracks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-2xl">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+          <Music className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium text-foreground mb-2">No public tracks yet</h3>
+        {isOwn && (
+          <p className="text-muted-foreground text-sm">
+            Upload a track and click <span className="text-primary">Make Public</span> to share it.
+          </p>
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      {tracks.map((track) => (
+        <TrackCard key={track.id} track={track} layout="row" />
+      ))}
+    </div>
+  )
+}
+
+function PrivateTracksSection({
+  privateTracks,
+  currentTrack,
+  playing,
+  play,
+  pause,
+  resume,
+  onPublish,
+}: {
+  privateTracks: PrivateTrack[]
+  currentTrack: Track | null
+  playing: boolean
+  play: (track: Track) => void
+  pause: () => void
+  resume: () => void
+  onPublish: (track: PrivateTrack) => void
+}) {
+  if (privateTracks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-2xl">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+          <Lock className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium text-foreground mb-2">No private tracks</h3>
+        <p className="text-muted-foreground text-sm">Tracks you upload will appear here first.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {privateTracks.map((track) => {
+        const asTrack: Track = {
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          address: track.address,
+          cid: track.cid,
+          audioUrl: track.audioUrl,
+          coverColor: track.coverColor,
+          duration: track.duration,
+          plays: 0,
+          uploadedAt: track.uploadedAt,
+          genre: track.genre,
+        }
+        const isThisTrack = currentTrack?.id === track.id
+        const isThisPlaying = isThisTrack && playing
+
+        return (
+          <div
+            key={track.id}
+            className={cn(
+              'flex items-center gap-3 rounded-xl border border-border bg-card/50 px-4 py-3 transition-colors',
+              'hover:bg-card',
+              isThisTrack && 'border-primary/30 bg-card'
+            )}
+          >
+            {/* Cover + play */}
+            <div className="relative flex-shrink-0">
+              <div
+                className={cn(
+                  'w-12 h-12 rounded-lg',
+                  `bg-gradient-to-br ${track.coverColor}`
+                )}
+              />
+              <Button
+                size="icon"
+                className="absolute inset-0 m-auto h-8 w-8 rounded-full opacity-0 hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  if (isThisTrack) {
+                    if (isThisPlaying) pause()
+                    else resume()
+                  } else {
+                    play(asTrack)
+                  }
+                }}
+              >
+                {isThisPlaying ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4 translate-x-0.5" />
+                )}
+              </Button>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className={cn('text-sm font-medium truncate', isThisTrack && 'text-primary')}>
+                {track.title}
+              </p>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {track.artist}
+                {track.genre && <span className="text-muted-foreground/60"> · {track.genre}</span>}
+                <span className="text-muted-foreground/40"> · {formatDuration(track.duration)}</span>
+              </p>
+            </div>
+
+            <Button
+              size="sm"
+              onClick={() => onPublish(track)}
+              className="shrink-0 gap-1.5 text-xs"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Make Public
+            </Button>
+          </div>
+        )
+      })}
+    </div>
+  )
 }

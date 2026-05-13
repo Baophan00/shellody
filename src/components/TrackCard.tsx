@@ -1,97 +1,157 @@
-'use client';
-import Link from 'next/link';
-import { Track } from '@/lib/types';
-import { usePlayer } from '@/context/PlayerContext';
-import { formatDuration, shortAddress } from '@/lib/utils';
+'use client'
 
-interface Props {
-  track: Track;
-  rank?: number;
+import { Play, Pause } from 'lucide-react'
+import { Track } from '@/lib/types'
+import { usePlayer } from '@/context/PlayerContext'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { formatDuration, shortAddress } from '@/lib/utils'
+
+interface TrackCardProps {
+  track: Track
+  showArtist?: boolean
+  rank?: number
+  layout?: 'card' | 'row'
 }
 
-function PlayIcon() {
-  return (
-    <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  );
-}
+export function TrackCard({ track, showArtist = true, rank, layout = 'card' }: TrackCardProps) {
+  const { currentTrack, playing, play, pause, resume } = usePlayer()
+  const isCurrentTrack = currentTrack?.id === track.id
+  const isCurrentlyPlaying = isCurrentTrack && playing
 
-function PauseIcon() {
-  return (
-    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-    </svg>
-  );
-}
+  const handlePlay = () => {
+    if (isCurrentTrack) {
+      if (playing) pause()
+      else resume()
+    } else {
+      play(track)
+    }
+  }
 
-export default function TrackCard({ track, rank }: Props) {
-  const { currentTrack, playing, play, pause } = usePlayer();
-  const isActive = currentTrack?.id === track.id;
+  if (layout === 'row') {
+    return (
+      <div
+        className={cn(
+          'group relative flex items-center gap-4 rounded-xl p-3 transition-colors',
+          'hover:bg-secondary/50',
+          isCurrentTrack && 'bg-secondary'
+        )}
+      >
+        {rank && (
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center">
+            <span
+              className={cn(
+                'text-2xl font-bold',
+                rank === 1 && 'text-yellow-500',
+                rank === 2 && 'text-zinc-400',
+                rank === 3 && 'text-amber-600',
+                rank > 3 && 'text-muted-foreground'
+              )}
+            >
+              {rank}
+            </span>
+          </div>
+        )}
 
-  const handlePlayPause = () => {
-    if (isActive && playing) pause();
-    else play(track);
-  };
+        <div className="relative flex-shrink-0">
+          <div
+            className={cn(
+              'h-14 w-14 rounded-lg transition-opacity group-hover:opacity-75',
+              track.coverColor
+                ? `bg-gradient-to-br ${track.coverColor}`
+                : 'bg-gradient-to-br from-primary/60 to-accent/60'
+            )}
+          />
+          <Button
+            onClick={handlePlay}
+            size="icon"
+            className={cn(
+              'absolute inset-0 m-auto h-10 w-10 rounded-full opacity-0 transition-opacity',
+              'group-hover:opacity-100',
+              isCurrentlyPlaying && 'opacity-100'
+            )}
+          >
+            {isCurrentlyPlaying ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5 translate-x-0.5" />
+            )}
+          </Button>
+        </div>
 
+        <div className="min-w-0 flex-1">
+          <p className={cn('truncate font-medium', isCurrentTrack && 'text-primary')}>
+            {track.title}
+          </p>
+          {showArtist && (
+            <p className="truncate text-sm text-muted-foreground">
+              {track.artist || shortAddress(track.address)}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span className="hidden sm:inline">{track.plays.toLocaleString()} plays</span>
+          <span>{formatDuration(track.duration)}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Card layout (grid)
   return (
     <div
-      className={`group flex items-center gap-4 bg-zinc-900 rounded-xl px-4 py-3 hover:bg-zinc-800/80 transition-colors ${
-        isActive ? 'ring-1 ring-violet-500/70' : ''
-      }`}
-    >
-      {/* Optional rank number */}
-      {rank !== undefined && (
-        <span
-          className={`w-6 text-center text-sm font-bold shrink-0 ${
-            rank <= 3 ? 'text-violet-400' : 'text-zinc-600'
-          }`}
-        >
-          {rank}
-        </span>
+      className={cn(
+        'group relative flex flex-col rounded-xl border border-border bg-card/50 overflow-hidden transition-all duration-200',
+        'hover:bg-card hover:shadow-lg hover:shadow-primary/5 hover:border-border',
+        isCurrentTrack && 'ring-1 ring-primary/50 bg-card'
       )}
-
-      {/* Cover art / play button */}
-      <button
-        onClick={handlePlayPause}
-        className={`relative w-12 h-12 rounded-xl bg-gradient-to-br ${track.coverColor} shrink-0 flex items-center justify-center hover:scale-105 transition-transform`}
-      >
-        {isActive && playing ? <PauseIcon /> : <PlayIcon />}
-        {isActive && (
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-violet-500 rounded-full border-2 border-zinc-900" />
-        )}
-      </button>
-
-      {/* Track info */}
-      <div className="flex-1 min-w-0">
-        <Link
-          href={`/track/${track.id}`}
-          className="block text-white font-medium truncate hover:text-violet-400 transition-colors leading-tight"
+    >
+      {/* Cover art */}
+      <div className="relative aspect-square w-full overflow-hidden">
+        <div
+          className={cn(
+            'absolute inset-0',
+            track.coverColor
+              ? `bg-gradient-to-br ${track.coverColor}`
+              : 'bg-gradient-to-br from-primary/60 to-accent/60'
+          )}
+        />
+        <Button
+          onClick={handlePlay}
+          size="icon"
+          className={cn(
+            'absolute bottom-3 right-3 h-12 w-12 rounded-full shadow-lg opacity-0 transition-opacity',
+            'group-hover:opacity-100',
+            isCurrentlyPlaying && 'opacity-100'
+          )}
         >
-          {track.title}
-        </Link>
-        <Link
-          href={`/profile/${track.address}`}
-          className="block text-zinc-400 text-sm truncate hover:text-violet-400 transition-colors leading-tight mt-0.5"
-        >
-          {track.artist || shortAddress(track.address)}
-        </Link>
+          {isCurrentlyPlaying ? (
+            <Pause className="h-5 w-5" />
+          ) : (
+            <Play className="h-5 w-5 translate-x-0.5" />
+          )}
+        </Button>
       </div>
 
-      {/* Metadata */}
-      <div className="flex items-center gap-3 shrink-0">
-        {track.genre && (
-          <span className="hidden sm:block text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-            {track.genre}
-          </span>
+      {/* Info */}
+      <div className="p-4">
+        <p className={cn('truncate font-semibold text-foreground', isCurrentTrack && 'text-primary')}>
+          {track.title}
+        </p>
+        {showArtist && (
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            {track.artist || shortAddress(track.address)}
+          </p>
         )}
-        <span className="text-xs text-zinc-500 tabular-nums">
-          {track.plays.toLocaleString()} plays
-        </span>
-        <span className="text-xs text-zinc-600 tabular-nums w-10 text-right">
-          {formatDuration(track.duration)}
-        </span>
+        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{track.plays.toLocaleString()} plays</span>
+          <span>{formatDuration(track.duration)}</span>
+        </div>
       </div>
     </div>
-  );
+  )
 }
+
+// Default export for backward compat
+export default TrackCard
