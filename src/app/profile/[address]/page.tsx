@@ -31,11 +31,7 @@ export default function ProfilePage() {
         }));
         setTracks(merged);
       })
-      .catch(() => {
-        setTracks(getTracks().filter(
-          (t) => t.address.toLowerCase() === address.toLowerCase()
-        ));
-      })
+      .catch(() => setTracks([]))
       .finally(() => setLoaded(true));
   }, [address]);
 
