@@ -1,6 +1,6 @@
 'use client'
 
-import { Play, Pause, Trash2 } from 'lucide-react'
+import { Play, Pause, Trash2, Download } from 'lucide-react'
 import { Track } from '@/lib/types'
 import { usePlayer } from '@/context/PlayerContext'
 import { TrackArt } from '@/components/TrackArt'
@@ -97,15 +97,30 @@ export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCar
       <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
         <span className="hidden sm:inline">{formatPlays(displayPlays)} plays</span>
         <span>{formatDuration(track.duration)}</span>
-        {onDelete && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete() }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-            aria-label="Delete track"
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <a
+            href={(() => {
+              const ext = track.audioUrl.split('.').pop()?.split('?')[0] ?? 'mp3'
+              const filename = encodeURIComponent(`${track.title} - ${track.artist}.${ext}`)
+              return `${track.audioUrl}?dl=${filename}`
+            })()}
+            download
+            onClick={(e) => e.stopPropagation()}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Download track"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
+            <Download className="h-3.5 w-3.5" />
+          </a>
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              aria-label="Delete track"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
