@@ -111,6 +111,31 @@ export async function prepareProfile(
   });
 }
 
+export async function prepareJamendoSave(
+  jamendoAudioUrl: string,
+  trackId: string,
+  userAddress: string
+): Promise<PrepareResult> {
+  return apiFetch<PrepareResult>('/api/discover/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jamendoAudioUrl, trackId, userAddress }),
+  });
+}
+
+export async function commitJamendoSave(
+  jamendoAudioUrl: string,
+  audioTxHash: string,
+  userAddress: string,
+  blobName: string
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>('/api/discover/commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jamendoAudioUrl, audioTxHash, userAddress, blobName }),
+  });
+}
+
 export async function commitProfile(
   txHash: string,
   address: string,
