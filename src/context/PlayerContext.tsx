@@ -154,11 +154,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [playAtIndex]);
 
   const setQueue = useCallback((tracks: Track[]) => {
-    queueRef.current = tracks;
     const currentId = queueRef.current[queueIndexRef.current]?.id;
+    queueRef.current = tracks;
     const newIdx = currentId ? tracks.findIndex((t) => t.id === currentId) : -1;
-    const idx = newIdx !== -1 ? newIdx : queueIndexRef.current;
-    if (newIdx !== -1) queueIndexRef.current = newIdx;
+    const idx = newIdx !== -1 ? newIdx : Math.max(0, queueIndexRef.current);
+    queueIndexRef.current = idx;
     updatePlaybackState(idx);
   }, [updatePlaybackState]);
 

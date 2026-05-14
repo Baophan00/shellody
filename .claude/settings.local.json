@@ -5,7 +5,12 @@
       "Read(*)",
       "Write(*)",
       "Edit(*)",
-      "MultiEdit(*)"
+      "MultiEdit(*)",
+      "WebFetch(domain:explorer.shelby.xyz)",
+      "WebFetch(domain:docs.shelby.xyz)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:shelby.xyz)"
     ]
   }
 }

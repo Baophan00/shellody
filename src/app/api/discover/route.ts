@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
     const limit = searchParams.get('limit') ?? '20';
     const order = searchParams.get('order') ?? 'popularity_week';
 
+    const tags = searchParams.get('tags') ?? '';
+
     const url = new URL('https://api.jamendo.com/v3.0/tracks/');
     url.searchParams.set('client_id', CLIENT_ID);
     url.searchParams.set('format', 'json');
@@ -29,6 +31,7 @@ export async function GET(req: NextRequest) {
     url.searchParams.set('include', 'musicinfo');
     url.searchParams.set('audioformat', 'mp31');
     url.searchParams.set('audiodlformat', 'mp31');
+    if (tags) url.searchParams.set('tags', tags);
 
     const res = await fetch(url.toString(), { next: { revalidate: 300 } });
     if (!res.ok) throw new Error(`Jamendo API error: ${res.status}`);

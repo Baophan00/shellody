@@ -41,7 +41,7 @@ export function Player() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-6 px-6">
+      <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
 
         {/* Track info */}
         <div className="flex min-w-0 flex-1 items-center gap-4">

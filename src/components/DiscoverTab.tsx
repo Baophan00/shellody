@@ -34,20 +34,26 @@ const ORDERS = [
 
 type Order = (typeof ORDERS)[number]['value'];
 
+const GENRES = ['Electronic', 'Hip-Hop', 'Ambient', 'Jazz', 'Lo-Fi', 'Rock'] as const;
+type Genre = (typeof GENRES)[number];
+
 export default function DiscoverTab() {
   const [tracks, setTracks] = useState<JamendoTrack[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [order, setOrder] = useState<Order>('popularity_week');
+  const [genres, setGenres] = useState<Genre[]>([]);
   const [saveTarget, setSaveTarget] = useState<JamendoTrack | null>(null);
   const { connected } = useWallet();
-  const { currentTrack, playing, play, pause, resume } = usePlayer();
+  const { currentTrack, playing, play, pause, resume, setQueue } = usePlayer();
 
-  const load = useCallback(async (o: Order) => {
+  const load = useCallback(async (o: Order, g: Genre[]) => {
     setLoaded(false);
     setError(false);
     try {
-      const res = await fetch(`/api/discover?order=${o}&limit=20`);
+      const params = new URLSearchParams({ order: o, limit: '20' });
+      if (g.length > 0) params.set('tags', g.map((x) => x.toLowerCase()).join('+'));
+      const res = await fetch(`/api/discover?${params}`);
       if (!res.ok) throw new Error();
       const { tracks: data } = await res.json();
       setTracks(data);
@@ -58,13 +64,20 @@ export default function DiscoverTab() {
     }
   }, []);
 
-  useEffect(() => { load(order); }, [order, load]);
+  useEffect(() => { load(order, genres); }, [order, genres, load]);
+
+  const toggleGenre = (g: Genre) => {
+    setGenres((prev) =>
+      prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
+    );
+  };
 
   const handlePlay = (j: JamendoTrack) => {
     const asTrack = jamendoAsTrack(j);
     if (currentTrack?.id === asTrack.id) {
       if (playing) pause(); else resume();
     } else {
+      setQueue(tracks.map(jamendoAsTrack));
       play(asTrack);
     }
   };
@@ -103,8 +116,9 @@ export default function DiscoverTab() {
 
   return (
     <>
-      {/* Order filter */}
-      <div className="flex items-center gap-2 mb-6">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        {/* Sort order */}
         {ORDERS.map((o) => (
           <button
             key={o.value}
@@ -119,6 +133,26 @@ export default function DiscoverTab() {
             {o.label}
           </button>
         ))}
+
+        {/* Divider */}
+        <span className="h-4 w-px bg-border mx-1" />
+
+        {/* Genre pills */}
+        {GENRES.map((g) => (
+          <button
+            key={g}
+            onClick={() => toggleGenre(g)}
+            className={cn(
+              'text-xs px-3 py-1.5 rounded-full border transition-colors',
+              genres.includes(g)
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/40'
+            )}
+          >
+            {g}
+          </button>
+        ))}
+
         <span className="ml-auto text-xs text-muted-foreground">
           Powered by <a href="https://jamendo.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Jamendo</a>
         </span>
