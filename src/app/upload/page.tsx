@@ -169,19 +169,21 @@ export default function UploadPage() {
 
   if (!connected) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-[#F9F9F7]">
         <Navigation />
         <main className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6">
-          <h1 className="text-2xl font-bold mb-2">Wallet Required</h1>
-          <p className="text-muted-foreground text-center max-w-md mb-6">
-            Connect your Petra wallet to upload and share your music.
-          </p>
-          <Button
-            onClick={() => connect('Petra')}
-            className="bg-foreground text-background hover:bg-foreground/90"
-          >
-            Connect Petra Wallet
-          </Button>
+          <div className="border-4 border-[#111111] p-12 max-w-md w-full text-center">
+            <h1 className="font-serif text-4xl font-black mb-2">Wallet Required</h1>
+            <p className="font-mono text-xs uppercase tracking-widest text-[#737373] mb-6">
+              Connect your Petra wallet to upload and share your music.
+            </p>
+            <Button
+              onClick={() => connect('Petra')}
+              className="w-full"
+            >
+              Connect Petra Wallet
+            </Button>
+          </div>
         </main>
         <Player />
       </div>
@@ -189,20 +191,22 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#F9F9F7]">
       <Navigation />
 
-      <main className="mx-auto max-w-xl px-6 pt-32 pb-32">
-        <h1 className="text-4xl font-bold tracking-tight mb-2">Upload Track</h1>
-        <p className="text-muted-foreground mb-12">
-          Stored on Shelby Protocol — one Petra approval required. Tracks are private by default.
-        </p>
+      <main className="mx-auto max-w-2xl px-4 pt-32 pb-32">
+        <div className="border-b-4 border-[#111111] pb-6 mb-12">
+          <h1 className="font-serif text-5xl lg:text-6xl font-black tracking-tighter mb-2">Upload Track</h1>
+          <p className="font-mono text-xs uppercase tracking-widest text-[#737373]">
+            Stored on Shelby Protocol — one Petra approval required. Tracks are private by default.
+          </p>
+        </div>
 
         {status === 'done' ? (
-          <div className="py-16 text-center">
-            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Upload Complete</h2>
-            <p className="text-muted-foreground">
+          <div className="py-16 text-center border-4 border-[#111111] p-12">
+            <CheckCircle2 className="h-12 w-12 text-[#111111] mx-auto mb-4" />
+            <h2 className="font-serif text-3xl font-bold mb-2">Upload Complete</h2>
+            <p className="font-mono text-xs uppercase tracking-widest text-[#737373]">
               Your track has been uploaded as private. Redirecting…
             </p>
           </div>
@@ -210,13 +214,9 @@ export default function UploadPage() {
           <div className="space-y-8">
             {/* Drop zone */}
             <div
-              className={`relative border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-                busy ? 'opacity-60 cursor-default' : 'cursor-pointer'
-              } ${
-                dragActive || file
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-muted-foreground'
-              }`}
+              className={`relative border-2 border-[#111111] p-12 text-center transition-colors ${
+                busy ? 'opacity-60 cursor-default' : 'cursor-pointer hover:bg-[#F5F5F5]'
+              } ${dragActive || file ? 'bg-[#F5F5F5]' : ''}`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
@@ -233,17 +233,17 @@ export default function UploadPage() {
 
               {file ? (
                 <div className="flex flex-col items-center">
-                  <Music className="h-8 w-8 text-primary mb-4" />
-                  <p className="font-medium mb-1">{file.name}</p>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <Music className="h-8 w-8 text-[#111111] mb-4" />
+                  <p className="font-sans text-sm font-semibold uppercase tracking-wider mb-1">{file.name}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373] mb-4">
                     {(file.size / 1024 / 1024).toFixed(2)} MB
                     {fileDuration > 0 && (
-                      <> &middot; {Math.floor(fileDuration / 60)}:{String(fileDuration % 60).padStart(2, '0')}</>
+                      <> · {Math.floor(fileDuration / 60)}:{String(fileDuration % 60).padStart(2, '0')}</>
                     )}
                   </p>
                   {!busy && (
                     <button
-                      className="text-sm text-muted-foreground hover:text-foreground underline"
+                      className="font-sans text-xs uppercase tracking-widest underline underline-offset-4 decoration-2 decoration-[#CC0000] hover:text-[#CC0000]"
                       onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
                     >
                       Change file
@@ -252,19 +252,19 @@ export default function UploadPage() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <Upload className="h-8 w-8 text-muted-foreground mb-4" />
-                  <p className="font-medium mb-1">Drop your audio file here</p>
-                  <p className="text-sm text-muted-foreground mb-4">MP3, WAV, FLAC, or AAC up to 50MB</p>
-                  <button className="text-sm underline hover:text-muted-foreground">Browse files</button>
+                  <Upload className="h-8 w-8 text-[#737373] mb-4" />
+                  <p className="font-sans text-sm font-semibold uppercase tracking-wider mb-1">Drop your audio file here</p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373] mb-4">MP3, WAV, FLAC, or AAC up to 50MB</p>
+                  <button className="font-sans text-xs uppercase tracking-widest underline underline-offset-4 decoration-2 decoration-[#CC0000] hover:text-[#CC0000]">Browse files</button>
                 </div>
               )}
             </div>
 
             {/* Metadata */}
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  Track Title <span className="text-destructive">*</span>
+                <label className="block font-sans text-xs uppercase tracking-widest font-medium mb-2">
+                  Track Title <span className="text-[#CC0000]">*</span>
                 </label>
                 <Input
                   placeholder="Enter track title"
@@ -275,7 +275,7 @@ export default function UploadPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Artist Name</label>
+                <label className="block font-sans text-xs uppercase tracking-widest font-medium mb-2">Artist Name</label>
                 <Input
                   placeholder="Your stage name (optional)"
                   value={artist}
@@ -285,12 +285,12 @@ export default function UploadPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Genre</label>
+                <label className="block font-sans text-xs uppercase tracking-widest font-medium mb-2">Genre</label>
                 <select
                   value={genre}
                   onChange={(e) => setGenre(e.target.value)}
                   disabled={busy}
-                  className="w-full h-12 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-ring disabled:opacity-50"
+                  className="w-full h-12 border-b-2 border-[#111111] bg-transparent px-3 font-mono text-sm text-[#111111] outline-none focus-visible:bg-[#F0F0F0] disabled:opacity-50"
                 >
                   <option value="">Select genre…</option>
                   {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
@@ -299,29 +299,31 @@ export default function UploadPage() {
             </div>
 
             {/* Privacy notice */}
-            <div className="flex items-start gap-3 text-sm text-muted-foreground">
-              <Lock className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              <p>Your track will be uploaded as private. You can make it public from your profile at any time.</p>
+            <div className="flex items-start gap-3 border border-[#111111] p-4">
+              <Lock className="h-4 w-4 flex-shrink-0 mt-0.5 text-[#737373]" />
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373]">
+                Your track will be uploaded as private. You can make it public from your profile at any time.
+              </p>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="flex items-start gap-3 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                <p>{error}</p>
+              <div className="flex items-start gap-3 border border-[#CC0000] p-4">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-[#CC0000]" />
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#CC0000]">{error}</p>
               </div>
             )}
 
             {/* Status */}
             {busy && (
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <p>{statusLabel(status)}</p>
+              <div className="flex items-center gap-3 border border-[#111111] p-4">
+                <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373]">{statusLabel(status)}</p>
               </div>
             )}
 
             <Button
-              className="w-full h-12 bg-foreground text-background hover:bg-foreground/90"
+              className="w-full h-12"
               disabled={!file || !title.trim() || busy}
               onClick={handleUpload}
             >
@@ -335,7 +337,7 @@ export default function UploadPage() {
               )}
             </Button>
 
-            <p className="text-xs text-center text-muted-foreground">
+            <p className="font-mono text-[10px] text-center uppercase tracking-widest text-[#737373]">
               By uploading, you confirm you own the rights to this music.
             </p>
           </div>

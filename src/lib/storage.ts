@@ -69,3 +69,43 @@ export function addPrivateTrack(track: PrivateTrack): void {
 export function removePrivateTrack(id: string): void {
   savePrivateTracks(getPrivateTracks().filter((t) => t.id !== id));
 }
+
+// ─── Bookmarks (local, no wallet needed) ─────────────
+const BOOKMARKS_KEY = 'shellody_bookmarks';
+
+export interface Bookmark {
+  id: string        // "jamendo-{id}"
+  title: string
+  artist: string
+  audioUrl: string
+  duration: number
+  genre?: string
+  savedAt: number
+}
+
+export function getBookmarks(): Bookmark[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(BOOKMARKS_KEY);
+  if (!raw) return [];
+  try { return JSON.parse(raw) as Bookmark[]; }
+  catch { return []; }
+}
+
+export function saveBookmarks(bookmarks: Bookmark[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks));
+}
+
+export function addBookmark(b: Bookmark): void {
+  const existing = getBookmarks();
+  if (existing.some((x) => x.id === b.id)) return; // no dupes
+  saveBookmarks([b, ...existing]);
+}
+
+export function removeBookmark(id: string): void {
+  saveBookmarks(getBookmarks().filter((b) => b.id !== id));
+}
+
+export function isBookmarked(id: string): boolean {
+  return getBookmarks().some((b) => b.id === id);
+}

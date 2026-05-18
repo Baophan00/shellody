@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Play, Pause, Trash2, Download } from 'lucide-react'
 import { Track } from '@/lib/types'
 import { usePlayer } from '@/context/PlayerContext'
@@ -40,20 +41,18 @@ export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCar
   return (
     <div
       className={cn(
-        'group relative flex items-center gap-4 py-3 transition-colors',
-        'hover:bg-muted/50',
-        isCurrentTrack && 'bg-muted/50'
+        'group flex items-center gap-4 py-3 px-2 transition-colors border-b border-[#111111] last:border-b-0',
+        'hover:bg-[#F5F5F5]',
+        isCurrentTrack && 'bg-[#F5F5F5]'
       )}
     >
       {rank !== undefined && (
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center">
           <span
             className={cn(
-              'text-2xl font-bold tabular-nums',
-              rank === 1 && 'text-primary',
-              rank === 2 && 'text-foreground',
-              rank === 3 && 'text-foreground',
-              rank > 3 && 'text-muted-foreground'
+              'font-serif text-2xl font-black tabular-nums leading-none',
+              rank === 1 && 'text-[#CC0000]',
+              rank > 1 && 'text-[#111111]'
             )}
           >
             {rank}
@@ -61,17 +60,17 @@ export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCar
         </div>
       )}
 
-      <div className="relative flex-shrink-0">
+      <Link href={`/track/${track.id}`} className="relative flex-shrink-0">
         <TrackArt
           trackId={track.id}
           isPlaying={isCurrentlyPlaying}
-          className="h-12 w-12 transition-opacity group-hover:opacity-75"
+          className="h-12 w-12 border border-[#111111] transition-opacity group-hover:opacity-75"
         />
         <button
-          onClick={handlePlay}
+          onClick={(e) => { e.preventDefault(); handlePlay() }}
           className={cn(
-            'absolute inset-0 m-auto flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background opacity-0 transition-opacity',
-            'group-hover:opacity-100',
+            'absolute inset-0 m-auto flex h-8 w-8 items-center justify-center border border-[#111111] bg-[#111111] text-[#F9F9F7] opacity-0 transition-all duration-200',
+            'group-hover:opacity-100 group-hover:shadow-[4px_4px_0px_0px_#111111] group-hover:translate-x-[-2px] group-hover:translate-y-[-2px]',
             isCurrentlyPlaying && 'opacity-100'
           )}
         >
@@ -81,20 +80,22 @@ export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCar
             <Play className="h-4 w-4 translate-x-0.5" />
           )}
         </button>
-      </div>
+      </Link>
 
       <div className="min-w-0 flex-1">
-        <p className={cn('truncate text-sm font-medium', isCurrentTrack && 'text-primary')}>
-          {track.title}
-        </p>
+        <Link href={`/track/${track.id}`} className="block">
+          <p className={cn('truncate font-sans text-sm font-semibold uppercase tracking-wider hover:underline decoration-2 decoration-[#CC0000]', isCurrentTrack && 'text-[#CC0000]')}>
+            {track.title}
+          </p>
+        </Link>
         {showArtist && (
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate font-mono text-[10px] uppercase tracking-widest text-[#737373]">
             {artistLabel}
           </p>
         )}
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+      <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-widest text-[#737373]">
         <span className="hidden sm:inline">{formatPlays(displayPlays)} plays</span>
         <span>{formatDuration(track.duration)}</span>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -106,18 +107,18 @@ export function TrackCard({ track, showArtist = true, rank, onDelete }: TrackCar
             })()}
             download
             onClick={(e) => e.stopPropagation()}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="h-7 w-7 flex items-center justify-center border border-[#111111] text-[#737373] hover:text-[#111111] hover:bg-[#E5E5E0] transition-all duration-200"
             aria-label="Download track"
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-3 w-3" />
           </a>
           {onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete() }}
-              className="text-muted-foreground hover:text-destructive transition-colors"
+              className="h-7 w-7 flex items-center justify-center border border-[#111111] text-[#737373] hover:text-[#CC0000] hover:border-[#CC0000] transition-all duration-200"
               aria-label="Delete track"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-3 w-3" />
             </button>
           )}
         </div>

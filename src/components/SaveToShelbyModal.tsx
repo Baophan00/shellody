@@ -1,96 +1,66 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useWallet } from '@aptos-labs/wallet-adapter-react';
-import { prepareJamendoSave, commitJamendoSave, BlobPayloadParams } from '@/lib/shelby';
-import { addPrivateTrack } from '@/lib/storage';
-import { generateId } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { X, Loader2, CheckCircle2, Download } from 'lucide-react';
-import type { JamendoTrack } from '@/app/api/discover/route';
+import { useState } from 'react'
+import { useWallet } from '@aptos-labs/wallet-adapter-react'
+import { addPrivateTrack } from '@/lib/storage'
+import { prepareJamendoSave, commitJamendoSave } from '@/lib/shelby'
+import { generateId } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Download, Loader2, X, AlertCircle, CheckCircle2 } from 'lucide-react'
+import type { JamendoTrack } from '@/app/api/discover/route'
 
-const COVER_COLORS = [
-  'from-violet-600 to-blue-600',
-  'from-orange-500 to-pink-600',
-  'from-green-500 to-teal-600',
-  'from-purple-600 to-indigo-700',
-  'from-red-500 to-orange-600',
-  'from-cyan-500 to-blue-600',
-  'from-yellow-500 to-orange-500',
-  'from-pink-500 to-rose-600',
-];
-
-function hexToBytes(hex: string): Uint8Array {
-  const h = hex.replace(/^0x/, '');
-  const bytes = new Uint8Array(h.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
+interface SaveToShelbyModalProps {
+  track: JamendoTrack
+  onClose: () => void
+  onSaved: () => void
 }
 
-function buildRegisterPayload(
-  deployerAddress: string,
-  params: BlobPayloadParams,
-  expirationMicros: number,
-  encoding: number
-) {
-  return {
-    function: `${deployerAddress}::blob_metadata::register_blob` as `${string}::${string}::${string}`,
-    functionArguments: [
-      params.blobName,
-      expirationMicros,
-      hexToBytes(params.merkleRootHex),
-      params.numChunksets,
-      params.blobSize,
-      0,
-      encoding,
-    ],
-  };
-}
+type Status = 'idle' | 'preparing' | 'signing' | 'uploading' | 'saving' | 'done'
 
-type Status = 'idle' | 'downloading' | 'signing' | 'uploading' | 'saving' | 'done';
-
-interface Props {
-  track: JamendoTrack;
-  onClose: () => void;
-  onSaved: () => void;
-}
-
-export default function SaveToShelbyModal({ track, onClose, onSaved }: Props) {
-  const { account, signAndSubmitTransaction } = useWallet();
-  const address = account?.address.toString() ?? '';
-
-  const [status, setStatus] = useState<Status>('idle');
-  const [error, setError] = useState('');
-
-  const busy = status !== 'idle';
+export default function SaveToShelbyModal({ track, onClose, onSaved }: SaveToShelbyModalProps) {
+  const { account, signAndSubmitTransaction } = useWallet()
+  const address = account?.address.toString() ?? ''
+  const [status, setStatus] = useState<Status>('idle')
+  const [error, setError] = useState('')
 
   const handleSave = async () => {
-    if (!address) return;
-    setError('');
-
-    const trackId = generateId();
-    const coverColor = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)];
+    setError('')
+    const trackId = generateId()
+    const coverColor = 'from-violet-600 to-blue-600'
 
     try {
-      setStatus('downloading');
-      const prep = await prepareJamendoSave(track.audiodownload || track.audio, trackId, address);
+      // Step 1: Server downloads from Jamendo + computes storage commitments
+      setStatus('preparing')
+      const prep = await prepareJamendoSave(track.audio, trackId, address)
 
-      setStatus('signing');
+      // Step 2: Sign on-chain registration in Petra
+      setStatus('signing')
       const audioTx = await signAndSubmitTransaction({
-        data: buildRegisterPayload(
-          prep.deployerAddress,
-          prep.audio,
-          prep.expirationMicros,
-          prep.encoding
-        ),
-      });
+        data: {
+          function: `${prep.deployerAddress}::blob_metadata::register_blob` as `${string}::${string}::${string}`,
+          functionArguments: [
+            prep.audio.blobName,
+            prep.expirationMicros,
+            (() => {
+              const h = prep.audio.merkleRootHex.replace(/^0x/, '')
+              const bytes = new Uint8Array(h.length / 2)
+              for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16)
+              return bytes
+            })(),
+            prep.audio.numChunksets,
+            prep.audio.blobSize,
+            0,
+            prep.encoding,
+          ],
+        },
+      })
 
-      setStatus('uploading');
-      await commitJamendoSave(track.audiodownload || track.audio, audioTx.hash, address, prep.audioBlobName);
+      // Step 3: Server uploads blob to Shelby
+      setStatus('uploading')
+      await commitJamendoSave(track.audio, audioTx.hash, address, prep.audioBlobName)
 
-      setStatus('saving');
+      // Step 4: Save to local private collection
+      setStatus('saving')
       addPrivateTrack({
         id: trackId,
         blobName: prep.audioBlobName,
@@ -103,106 +73,101 @@ export default function SaveToShelbyModal({ track, onClose, onSaved }: Props) {
         title: track.name,
         artist: track.artist_name,
         genre: track.genre || undefined,
-      });
+      })
 
-      setStatus('done');
-      onSaved();
+      setStatus('done')
+      setTimeout(() => onSaved(), 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-      setStatus('idle');
+      setError(err instanceof Error ? err.message : 'Save failed')
+      setStatus('idle')
     }
-  };
+  }
 
-  const statusLabel = () => {
-    if (status === 'downloading') return 'Downloading from Jamendo…';
-    if (status === 'signing') return 'Approve in wallet…';
-    if (status === 'uploading') return 'Uploading to Shelby Protocol…';
-    if (status === 'saving') return 'Saving track…';
-    return '';
-  };
+  const busy = status !== 'idle' && status !== 'done'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={!busy ? onClose : undefined}
-      />
-      <div className="relative bg-background border border-border rounded-xl p-6 w-full max-w-sm shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md border-4 border-[#111111] bg-[#F9F9F7] p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-serif text-2xl font-black tracking-tighter">
+            {status === 'done' ? 'Saved!' : 'Save to Shelby'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 flex items-center justify-center border border-[#111111] hover:bg-[#111111] hover:text-[#F9F9F7] transition-all duration-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
         {status === 'done' ? (
-          <div className="text-center py-4">
-            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Saved to Shelby!</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              The track is now in your private library. Publish it to share with the world.
+          <div className="text-center py-8">
+            <CheckCircle2 className="h-12 w-12 text-[#111111] mx-auto mb-4" />
+            <p className="font-sans text-sm font-semibold uppercase tracking-wider mb-2">{track.name}</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373]">
+              saved to your private collection
             </p>
-            <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={onClose}>
-              Done
-            </Button>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold">Save to Shelby</h2>
-              {!busy && (
-                <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-                  <X className="h-5 w-5" />
-                </button>
-              )}
+            <div className="flex items-center gap-4 mb-6 border border-[#111111] p-4">
+              <Download className="h-8 w-8 text-[#111111]" />
+              <div>
+                <p className="font-sans text-sm font-semibold uppercase tracking-wider">{track.name}</p>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373]">{track.artist_name}</p>
+              </div>
             </div>
 
-            {/* Track preview */}
-            <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 mb-6">
-              <p className="text-sm font-medium truncate">{track.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {track.artist_name}
-                {track.genre && <span className="text-muted-foreground/60"> · {track.genre}</span>}
-              </p>
-              <p className="text-xs text-muted-foreground/60 mt-1">via Jamendo</p>
-            </div>
-
-            <p className="text-sm text-muted-foreground mb-6">
-              This will download the track from Jamendo and store it on Shelby Protocol under your wallet address. One wallet approval required.
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373] mb-6 leading-relaxed">
+              This will download the track from Jamendo and upload it to the Shelby Protocol. A wallet approval is required.
             </p>
 
-            {error && <p className="text-sm text-destructive mb-4">{error}</p>}
+            {error && (
+              <div className="flex items-start gap-3 border border-[#CC0000] p-4 mb-4">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-[#CC0000]" />
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#CC0000]">{error}</p>
+              </div>
+            )}
 
             {busy && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>{statusLabel()}</span>
+              <div className="flex items-center gap-3 border border-[#111111] p-4 mb-4">
+                <Loader2 className="h-4 w-4 animate-spin text-[#111111]" />
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#737373]">
+                  {status === 'preparing' && 'Downloading from Jamendo & computing commitments…'}
+                  {status === 'signing' && 'Approve in Petra…'}
+                  {status === 'uploading' && 'Uploading to Shelby…'}
+                  {status === 'saving' && 'Saving to your collection…'}
+                </p>
               </div>
             )}
 
             <div className="flex gap-3">
-              {!busy && (
-                <Button variant="outline" className="flex-1" onClick={onClose}>
-                  Cancel
-                </Button>
-              )}
               <Button
-                className="flex-1 bg-foreground text-background hover:bg-foreground/90"
-                disabled={busy || !address}
+                variant="outline"
+                className="flex-1"
+                onClick={onClose}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
                 onClick={handleSave}
+                disabled={busy}
               >
                 {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
                   <>
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Save to Shelby
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving…
                   </>
+                ) : (
+                  'Save to Shelby'
                 )}
               </Button>
             </div>
-
-            {!address && (
-              <p className="text-xs text-center text-muted-foreground mt-3">
-                Connect your wallet to save tracks
-              </p>
-            )}
           </>
         )}
       </div>
     </div>
-  );
+  )
 }

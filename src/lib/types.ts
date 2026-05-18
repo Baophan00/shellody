@@ -11,6 +11,7 @@ export interface Track {
   uploadedAt: number;
   txHash?: string;
   genre?: string;
+  blobName?: string;
 }
 
 export interface UserProfile {

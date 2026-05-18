@@ -112,7 +112,7 @@ export function TrackArt({ trackId, isPlaying, className }: TrackArtProps) {
           </clipPath>
         </defs>
         {/* Background circle */}
-        <circle cx={size / 2} cy={size / 2} r={size / 2} fill="#0a0a0a" />
+        <circle cx={size / 2} cy={size / 2} r={size / 2} fill="#E5E5E0" />
         {/* Wave lines */}
         <g clipPath={`url(#${clipId})`}>
           {waves.map((wave, i) => (
@@ -121,7 +121,7 @@ export function TrackArt({ trackId, isPlaying, className }: TrackArtProps) {
               ref={(el) => { pathsRef.current[i] = el }}
               d={makePath(wave.y, wave.amplitude, wave.frequency, 0, size)}
               fill="none"
-              stroke="currentColor"
+              stroke="#111111"
               strokeWidth="0.9"
               strokeOpacity="0.85"
             />

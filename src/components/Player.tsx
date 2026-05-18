@@ -40,45 +40,43 @@ export function Player() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
-
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#F9F9F7] border-t-4 border-[#111111]">
+      <div className="mx-auto flex max-w-screen-xl items-center gap-4 px-4 py-3">
         {/* Track info */}
-        <div className="flex min-w-0 flex-1 items-center gap-4">
-          <TrackArt trackId={currentTrack.id} isPlaying={playing} className="h-12 w-12" />
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <TrackArt trackId={currentTrack.id} isPlaying={playing} className="h-11 w-11 border border-[#111111]" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{currentTrack.title}</p>
-            <p className="truncate text-xs text-muted-foreground">{currentTrack.artist}</p>
+            <p className="truncate font-sans text-sm font-semibold uppercase tracking-wider">{currentTrack.title}</p>
+            <p className="truncate font-mono text-[10px] uppercase tracking-widest text-[#737373]">{currentTrack.artist}</p>
           </div>
-          <WaveformVisualizer isPlaying={playing} className="hidden sm:flex h-10 w-24" />
+          <WaveformVisualizer isPlaying={playing} className="hidden sm:flex h-8 w-20" />
         </div>
 
-        {/* Controls + seek + next up */}
+        {/* Controls */}
         <div className="flex flex-1 flex-col items-center gap-1">
-          <div className="flex items-center gap-3">
-            {/* Shuffle */}
+          <div className="flex items-center gap-2">
             <button
               onClick={toggleShuffle}
               title="Shuffle"
               className={cn(
-                'transition-colors',
-                shuffle ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                'h-8 w-8 flex items-center justify-center border border-[#111111] transition-all duration-200',
+                shuffle ? 'bg-[#111111] text-[#F9F9F7]' : 'text-[#737373] hover:text-[#111111] hover:bg-[#E5E5E0]'
               )}
             >
-              <Shuffle className="h-3.5 w-3.5" />
+              <Shuffle className="h-3 w-3" />
             </button>
 
             <button
               onClick={playPrev}
               disabled={!canSkipPrev}
-              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="h-8 w-8 flex items-center justify-center border border-[#111111] text-[#737373] hover:text-[#111111] hover:bg-[#E5E5E0] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
-              <SkipBack className="h-4 w-4" />
+              <SkipBack className="h-3.5 w-3.5" />
             </button>
 
             <button
               onClick={handlePlayPause}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background hover:bg-foreground/90 transition-colors"
+              className="flex h-10 w-10 items-center justify-center border-2 border-[#111111] bg-[#111111] text-[#F9F9F7] hover:bg-[#F9F9F7] hover:text-[#111111] transition-all duration-200"
             >
               {playing ? (
                 <Pause className="h-4 w-4" />
@@ -90,27 +88,26 @@ export function Player() {
             <button
               onClick={playNext}
               disabled={!canSkipNext}
-              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="h-8 w-8 flex items-center justify-center border border-[#111111] text-[#737373] hover:text-[#111111] hover:bg-[#E5E5E0] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
-              <SkipForward className="h-4 w-4" />
+              <SkipForward className="h-3.5 w-3.5" />
             </button>
 
-            {/* Repeat */}
             <button
               onClick={toggleRepeat}
               title="Repeat"
               className={cn(
-                'transition-colors',
-                repeat ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                'h-8 w-8 flex items-center justify-center border border-[#111111] transition-all duration-200',
+                repeat ? 'bg-[#111111] text-[#F9F9F7]' : 'text-[#737373] hover:text-[#111111] hover:bg-[#E5E5E0]'
               )}
             >
-              <Repeat className="h-3.5 w-3.5" />
+              <Repeat className="h-3 w-3" />
             </button>
           </div>
 
           {/* Seek bar */}
           <div className="flex w-full max-w-md items-center gap-2">
-            <span className="w-10 text-right text-xs text-muted-foreground font-mono">
+            <span className="w-10 text-right font-mono text-[10px] text-[#737373]">
               {formatTime(currentTime)}
             </span>
             <Slider
@@ -120,40 +117,39 @@ export function Player() {
               step={0.1}
               className="flex-1"
             />
-            <span className="w-10 text-xs text-muted-foreground font-mono">
+            <span className="w-10 font-mono text-[10px] text-[#737373]">
               {formatTime(duration || currentTrack.duration)}
             </span>
           </div>
 
-          {/* Next up */}
-          <p className="text-[10px] text-muted-foreground/60 leading-none h-3">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-[#A3A3A3] leading-none h-3">
             {repeat
               ? 'Repeating'
               : shuffle
               ? 'Shuffling'
               : nextTrack
-              ? `Next up: ${nextTrack.title}`
+              ? `Next: ${nextTrack.title}`
               : ''}
           </p>
         </div>
 
         {/* Volume */}
-        <div className="hidden flex-1 items-center justify-end gap-3 sm:flex">
+        <div className="hidden lg:flex flex-1 items-center justify-end gap-3">
           <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="h-8 w-8 flex items-center justify-center border border-[#111111] text-[#737373] hover:text-[#111111] hover:bg-[#E5E5E0] transition-all duration-200"
             onClick={toggleMute}
           >
             {muted || volume === 0 ? (
-              <VolumeX className="h-4 w-4" />
+              <VolumeX className="h-3.5 w-3.5" />
             ) : (
-              <Volume2 className="h-4 w-4" />
+              <Volume2 className="h-3.5 w-3.5" />
             )}
           </button>
           <Slider
             value={[muted ? 0 : volume * 100]}
             onValueChange={(value) => setVolume(value[0] / 100)}
             max={100}
-            className="w-24"
+            className="w-20"
           />
         </div>
       </div>

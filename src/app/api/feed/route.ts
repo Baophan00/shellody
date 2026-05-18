@@ -29,23 +29,25 @@ export async function GET(req: NextRequest) {
 
     const playCounts = getPlayCounts();
 
-    const tracks = (
-      await Promise.allSettled(
-        written.map(async (blobMeta) => {
-          const blob = await client.download({
-            account: blobMeta.owner.toString(),
-            blobName: blobMeta.blobNameSuffix,
-          });
-          const text = await new Response(blob.readable as ReadableStream).text();
-          const track = JSON.parse(text) as Track;
-          // Merge server-side play counts (always >= the static value in the blob)
-          return { ...track, plays: playCounts[track.id] ?? track.plays };
-        })
-      )
-    )
-      .filter(
-        (r): r is PromiseFulfilledResult<Track> => r.status === 'fulfilled'
-      )
+    const results = await Promise.allSettled(
+      written.map(async (blobMeta) => {
+        const blob = await client.download({
+          account: blobMeta.owner.toString(),
+          blobName: blobMeta.blobNameSuffix,
+        });
+        const text = await new Response(blob.readable as ReadableStream).text();
+        const track = JSON.parse(text) as Track;
+        // Merge server-side play counts (always >= the static value in the blob)
+        return {
+          ...track,
+          plays: playCounts[track.id] ?? track.plays,
+          blobName: blobMeta.blobNameSuffix,
+        } as Track;
+      })
+    );
+
+    const tracks = results
+      .filter((r): r is PromiseFulfilledResult<Track> => r.status === 'fulfilled')
       .map((r) => r.value)
       .sort((a, b) => b.uploadedAt - a.uploadedAt);
 

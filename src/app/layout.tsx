@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { Providers } from '@/components/Providers';
 
@@ -10,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#ffffff',
+  themeColor: '#F9F9F7',
 }
 
 export default function RootLayout({
@@ -19,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="bg-background">
-      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
+    <html lang="en" className="bg-[#F9F9F7]">
+      <body className="font-body antialiased">
         <Providers>
           {children}
         </Providers>

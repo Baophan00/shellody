@@ -7,6 +7,7 @@ import {
   useCallback,
   ReactNode,
 } from 'react';
+import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { Track } from '@/lib/types';
 
 interface PlayerContextType {
@@ -39,6 +40,8 @@ const PlayerContext = createContext<PlayerContextType | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { account } = useWallet();
+  const listenerAddress = account?.address?.toString();
 
   // Refs so onEnded always reads the latest values without stale closures.
   const queueRef = useRef<Track[]>([]);
@@ -83,9 +86,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     fetch('/api/plays', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trackId: track.id }),
+      body: JSON.stringify({
+        trackId: track.id,
+        listenerAddress,
+        artistAddress: track.address,
+      }),
     }).catch(console.error);
-  }, []);
+  }, [listenerAddress]);
 
   const playAtIndex = useCallback((idx: number) => {
     const track = queueRef.current[idx];
